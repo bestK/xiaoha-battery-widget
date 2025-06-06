@@ -19,6 +19,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var addButton: Button
     private lateinit var loadingView: View
     private lateinit var contentView: View
+    private lateinit var serviceLocalSwitch: Switch
     
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +82,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         refreshIntervalSpinner = findViewById(R.id.refresh_interval_spinner)
         addButton = findViewById(R.id.add_button)
 
+        serviceLocalSwitch = findViewById(R.id.service_local_switch)
+
         // 添加 GitHub 链接点击事件
         findViewById<View>(R.id.github_container).setOnClickListener {
             try {
@@ -92,6 +95,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 Toast.makeText(this, "无法打开链接：${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
+
+         
     }
 
     private fun showLoading(show: Boolean) {
@@ -155,6 +160,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     val intervals = resources.getIntArray(R.array.refresh_intervals)
                     val selectedInterval = intervals[refreshIntervalSpinner.selectedItemPosition]
                     editor.putInt("refreshInterval_$appWidgetId", selectedInterval)
+
+                    // 保存服务状态
+                    editor.putBoolean("serviceLocalEnabled", serviceLocalSwitch.isChecked)
                     
                     editor.apply()
 
