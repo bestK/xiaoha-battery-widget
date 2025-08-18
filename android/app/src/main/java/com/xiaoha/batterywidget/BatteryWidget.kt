@@ -24,7 +24,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -50,8 +52,7 @@ class BatteryWidget : AppWidgetProvider() {
 
         fun init(context: Context) {
             prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
-            val baseUrl = prefs.getString("base_url", "https://xiaoha.linkof.link")!!
-
+            val baseUrl = prefs.getString("base_url", "https://xiaoha.linkof.link/")!!
 
             // 添加日志拦截器
             val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -227,10 +228,10 @@ class BatteryWidget : AppWidgetProvider() {
         // 获取配置
         val prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
         val batteryNo = prefs.getString("batteryNo_$appWidgetId", "") ?: ""
-        val cityCode = prefs.getString("cityCode_$appWidgetId", "0755") ?: "0755"
+        val token = prefs.getString("token_$appWidgetId", "") ?: ""
 
-        if (batteryNo.isEmpty()) {
-            Log.d(TAG, "No battery number configured for widget ID: $appWidgetId")
+        if (batteryNo.isEmpty() || token.isEmpty()) {
+            Log.d(TAG, "No battery number or token configured for widget ID: $appWidgetId")
             updateErrorState(views, "点击配置")
             appWidgetManager.updateAppWidget(appWidgetId, views)
             return
@@ -239,41 +240,84 @@ class BatteryWidget : AppWidgetProvider() {
         // 更新小部件
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val response = withTimeout(5000) {
-                    apiService?.getBatteryInfo(batteryNo, cityCode)?.execute()
+                Log.d(TAG, "开始获取电池数据，batteryNo: $batteryNo")
+                
+                // 步骤1: 获取预处理参数
+                val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
+                val preparamsResponse = withTimeout(10000) {
+                    apiService?.getPreparams(batteryNo, tokenRequestBody)?.execute()
                 }
 
+                if (preparamsResponse == null || !preparamsResponse.isSuccessful) {
+                    throw Exception("预处理参数请求失败: ${preparamsResponse?.code()}")
+                }
+
+                val preparamsData = preparamsResponse.body()?.data
+                if (preparamsData == null) {
+                    throw Exception("预处理参数响应数据无效")
+                }
+
+                Log.d(TAG, "预处理参数获取成功，url: ${preparamsData.url}")
+
+                // 步骤2: 使用预处理参数获取电池数据
+                val batteryRequestBody = preparamsData.body.toRequestBody("application/json".toMediaType())
+                val batteryResponse = withTimeout(10000) {
+                    // 创建新的retrofit实例用于调用不同的base URL
+                    val batteryRetrofit = Retrofit.Builder()
+                        .baseUrl("https://dummy.base.url/") // 占位符，因为我们使用@Url
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build()
+                    val batteryService = batteryRetrofit.create(BatteryService::class.java)
+                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody).execute()
+                }
+
+                if (batteryResponse == null || !batteryResponse.isSuccessful) {
+                    throw Exception("电池数据请求失败: ${batteryResponse?.code()}")
+                }
+
+                val encryptedData = batteryResponse.body()
+                if (encryptedData == null) {
+                    throw Exception("电池数据响应为空")
+                }
+
+                Log.d(TAG, "电池数据获取成功，开始解码")
+
+                // 步骤3: 解码电池数据
+                val decodeRequestBody = encryptedData.bytes().toRequestBody("application/octet-stream".toMediaType())
+                val decodeResponse = withTimeout(10000) {
+                    apiService?.decodeBatteryData(decodeRequestBody)?.execute()
+                }
+
+                if (decodeResponse == null || !decodeResponse.isSuccessful) {
+                    throw Exception("解码请求失败: ${decodeResponse?.code()}")
+                }
+
+                val decodeData = decodeResponse.body()?.data?.data
+                if (decodeData == null || decodeData.bindBatteries.isEmpty()) {
+                    throw Exception("解码响应数据无效或电池数据为空")
+                }
+
+                val batteryInfo = decodeData.bindBatteries[0]
+                Log.d(TAG, "解码成功，电池电量: ${batteryInfo.batteryLife}%")
+
+                // 解析时间格式 (reportTime是字符串格式)
+                val reportTime = try {
+                    // 假设reportTime是ISO格式或者其他格式，需要根据实际情况调整
+                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(batteryInfo.reportTime) 
+                        ?: Date()
+                } catch (e: Exception) {
+                    Log.w(TAG, "时间解析失败，使用当前时间: ${batteryInfo.reportTime}", e)
+                    Date()
+                }
+                
+                val formattedTime = dateFormat.format(reportTime)
+
                 withContext(Dispatchers.Main) {
-                    if (response != null) {
-                        if (response.isSuccessful) {
-                            val batteryResponse = response.body()
-                            if (batteryResponse?.code == 0) {
-                                val batteryLife = batteryResponse.data.batteryLife
-                                val reportTime = Date(batteryResponse.data.reportTime)
-                                val formattedTime = dateFormat.format(reportTime)
-
-                                views.setProgressBar(R.id.progress_circle, 100, batteryLife, false)
-                                views.setTextViewText(R.id.percent_text, "$batteryLife%")
-                                views.setTextViewText(R.id.battery_no, batteryNo)
-                                views.setTextViewText(R.id.update_time, formattedTime)
-
-                            } else {
-                                Log.e(TAG, "Error in API response: $batteryResponse")
-                                updateErrorState(views, "数据错误")
-                            }
-                        } else {
-                            Log.e(
-                                TAG,
-                                "Network request failed: ${response.code()} ${
-                                    Companion.prefs.getString(
-                                        "base_url",
-                                        ""
-                                    )
-                                }"
-                            )
-                            updateErrorState(views, "网络错误")
-                        }
-                    }
+                    views.setProgressBar(R.id.progress_circle, 100, batteryInfo.batteryLife, false)
+                    views.setTextViewText(R.id.percent_text, "${batteryInfo.batteryLife}%")
+                    views.setTextViewText(R.id.battery_no, batteryNo)
+                    views.setTextViewText(R.id.update_time, formattedTime)
+                    Log.d(TAG, "小部件更新成功")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating widget", e)

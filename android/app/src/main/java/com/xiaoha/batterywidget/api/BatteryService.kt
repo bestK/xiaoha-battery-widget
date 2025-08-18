@@ -1,14 +1,28 @@
 package com.xiaoha.batterywidget.api
 
+import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.Call
-import retrofit2.http.GET
+import retrofit2.http.Body
+import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Url
 
 interface BatteryService {
-    @GET("/")
-    fun getBatteryInfo(
+    @POST("preparams")
+    fun getPreparams(
         @Query("batteryNo") batteryNo: String,
-        @Query("cityCode") cityCode: String,
-        @Query("format") format: String = "json"
-    ): Call<BatteryResponse>
+        @Body token: RequestBody
+    ): Call<PreparamsResponse>
+    
+    @POST
+    fun getBatteryData(
+        @Url url: String,
+        @Body body: RequestBody
+    ): Call<ResponseBody>
+    
+    @POST("decode")
+    fun decodeBatteryData(
+        @Body encryptedData: RequestBody
+    ): Call<DecodeResponse>
 } 

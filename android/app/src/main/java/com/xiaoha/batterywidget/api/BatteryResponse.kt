@@ -1,12 +1,30 @@
 package com.xiaoha.batterywidget.api
 
-data class BatteryResponse(
-    val code: Int,
-    val message: String,
-    val data: BatteryData
+// 预处理参数响应
+data class PreparamsResponse(
+    val data: PreparamsData
 )
 
-data class BatteryData(
+data class PreparamsData(
+    val url: String,
+    val body: String,
+    val headers: Map<String, String>
+)
+
+// 解码响应
+data class DecodeResponse(
+    val data: DecodeData
+)
+
+data class DecodeData(
+    val data: BatteryResponseData
+)
+
+data class BatteryResponseData(
+    val bindBatteries: List<BatteryInfo>
+)
+
+data class BatteryInfo(
     val batteryLife: Int,
-    val reportTime: Long
+    val reportTime: String
 ) 

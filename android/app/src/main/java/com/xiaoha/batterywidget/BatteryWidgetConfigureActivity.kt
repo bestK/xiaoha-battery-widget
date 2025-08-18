@@ -25,6 +25,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private lateinit var batteryNoEdit: EditText
     private lateinit var cityCodeEdit: EditText
+    private lateinit var tokenEdit: EditText
     private lateinit var baseUrlEdit: EditText
     private lateinit var refreshIntervalSpinner: Spinner
     private lateinit var addButton: Button
@@ -52,14 +53,16 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
                     val savedBatteryNo = prefs.getString("batteryNo_$appWidgetId", "")
                     val savedCityCode = prefs.getString("cityCode_$appWidgetId", "0755")
+                    val savedToken = prefs.getString("token_$appWidgetId", "")
                     val savedRefreshInterval = prefs.getInt("refreshInterval_$savedBatteryNo", 5)
-                    val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link")
+                    val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link/")
                     val refreshIntervals = resources.getStringArray(R.array.refresh_intervals)
                     val intervals = resources.getIntArray(R.array.refresh_interval_values)
                     val position = intervals.indexOf(savedRefreshInterval)
                     InitData(
                         savedBatteryNo.toString(),
                         savedCityCode.toString(),
+                        savedToken.toString(),
                         baseUrl.toString(),
                         position,
                         refreshIntervals,
@@ -83,8 +86,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
 
     private fun initViews() {
         batteryNoEdit = findViewById(R.id.battery_no_edit)
-        baseUrlEdit = findViewById(R.id.base_url_edit)
         cityCodeEdit = findViewById(R.id.city_code_edit)
+        tokenEdit = findViewById(R.id.token_edit)
+        baseUrlEdit = findViewById(R.id.base_url_edit)
         refreshIntervalSpinner = findViewById(R.id.refresh_interval_spinner)
         addButton = findViewById(R.id.add_button)
 
@@ -107,6 +111,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         // 设置已保存的值
         batteryNoEdit.setText(initData.batteryNo)
         cityCodeEdit.setText(initData.cityCode)
+        tokenEdit.setText(initData.token)
         baseUrlEdit.setText(initData.baseUrl)
 
         // 设置刷新间隔选项
@@ -136,11 +141,21 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         val cityCode = cityCodeEdit.text.toString().trim().let {
             if (it.isEmpty()) "0755" else it
         }
+        val token = tokenEdit.text.toString().trim()
         
         if (batteryNo.isEmpty()) {
             AlertDialog.Builder(this@BatteryWidgetConfigureActivity)
                 .setTitle("保存失败")
                 .setMessage("请输入电池编号")
+                .setPositiveButton("确定", null)
+                .show()
+            return
+        }
+        
+        if (token.isEmpty()) {
+            AlertDialog.Builder(this@BatteryWidgetConfigureActivity)
+                .setTitle("保存失败")
+                .setMessage("请输入token")
                 .setPositiveButton("确定", null)
                 .show()
             return
@@ -157,9 +172,10 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
                     prefs.edit {
 
-                        // 保存电池号和城市代码
+                        // 保存电池号、城市代码和token
                         putString("batteryNo_$appWidgetId", batteryNo)
                         putString("cityCode_$appWidgetId", cityCode)
+                        putString("token_$appWidgetId", token)
 
                         // 保存刷新间隔
                         val intervals = resources.getIntArray(R.array.refresh_interval_values)
@@ -195,6 +211,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private fun setInputsEnabled(enabled: Boolean) {
         batteryNoEdit.isEnabled = enabled
         cityCodeEdit.isEnabled = enabled
+        tokenEdit.isEnabled = enabled
         refreshIntervalSpinner.isEnabled = enabled
         addButton.isEnabled = enabled
     }
@@ -213,6 +230,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private data class InitData(
         val batteryNo: String,
         val cityCode: String,
+        val token: String,
         val baseUrl: String,
         val refreshIntervalPosition: Int,
         val refreshIntervals: Array<String>
@@ -226,6 +244,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             if (refreshIntervalPosition != other.refreshIntervalPosition) return false
             if (batteryNo != other.batteryNo) return false
             if (cityCode != other.cityCode) return false
+            if (token != other.token) return false
             if (baseUrl != other.baseUrl) return false
             if (!refreshIntervals.contentEquals(other.refreshIntervals)) return false
 
@@ -236,6 +255,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             var result = refreshIntervalPosition
             result = 31 * result + batteryNo.hashCode()
             result = 31 * result + cityCode.hashCode()
+            result = 31 * result + token.hashCode()
             result = 31 * result + baseUrl.hashCode()
             result = 31 * result + refreshIntervals.contentHashCode()
             return result

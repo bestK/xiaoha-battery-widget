@@ -1,44 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">小哈电池小部件</string>
-    <string name="widget_name">电池状态</string>
-    <string name="configure">更新配置</string>
-    <string name="add_widget">保存配置</string>
-    <string name="battery_no_hint">电池编号</string>
-    <string name="city_code_hint">城市代码（默认0755）</string>
-    <string name="base_url_hint">默认服务器地址</string>
-    <string name="loading">加载中…</string>
-    <string name="error_loading">加载失败</string>
-    <string name="error_network">网络错误</string>
-    <string name="add_new_widget">添加新小部件</string>
-    <string name="usage_guide">使用说明</string>
-
-    <string name="guide_text">使用说明：\n1. 长按桌面空白处\n2. 选择"小部件"或"Widgets"\n3. 找到"小哈电池小组件"\n4.
-        拖动到桌面合适位置\n5. 在此页面配置电池信息</string>
-    <string name="refresh_interval_label">自动刷新间隔</string>
-    <string name="refresh_tip">提示：双击小部件可以立即刷新</string>
-    <string name="version">v0.0.2</string>
-    <string name="configure_instructions">请输入电池编号和城市代码\n双击小部件可以立即刷新</string>
-    <string name="battery_status">电池状态</string>
-    <string name="github_link">https://github.com/bestK/xiaoha-battery-widget</string>
-    <string-array name="refresh_intervals">
-        <item>1分钟</item>
-        <item>5分钟</item>
-        <item>15分钟</item>
-        <item>30分钟</item>
-        <item>1小时</item>
-        <item>2小时</item>
-        <item>4小时</item>
-        <item>8小时</item>
-    </string-array>
-    <integer-array name="refresh_interval_values">
-        <item>1</item>
-        <item>5</item>
-        <item>15</item>
-        <item>30</item>
-        <item>60</item>
-        <item>120</item>
-        <item>240</item>
-        <item>480</item>
-    </integer-array>
-</resources> 
+	<string name="app_name">
+		小哈电池小部件
+	</string>
+	<string name="widget_name">
+		电池状态
+	</string>
+	<string name="configure">
+		更新配置
+	</string>
+	<string name="add_widget">
+		保存配置
+	</string>
+	<string name="battery_no_hint">
+		电池编号
+	</string>
+	<string name="city_code_hint">
+		城市代码（默认0755）
+	</string>
+	<string name="base_url_hint">
+		默认服务器地址
+	</string>
+	<string name="token_hint">
+		Token（从抓包获取）
+	</string>
+	<string name="loading">
+		加载中…
+	</string>
+	<string name="error_loading">
+		加载失败
+	</string>
+	<string name="error_network">
+		网络错误
+	</string>
+	<string name="add_new_widget">
+		添加新小部件
+	</string>
+	<string name="usage_guide">
+		使用说明
+	</string>
+	<string name="guide_text">
+		使用说明：\n1. 长按桌面空白处\n2. 选择"小部件"或"Widgets"\n3. 找到"小哈电池小组件"\n4.
+		拖动到桌面合适位置\n5. 在此页面配置电池信息和token\n\n注意：token需要通过抓包获取
+	</string>
+	<string name="refresh_interval_label">
+		自动刷新间隔
+	</string>
+	<string name="refresh_tip">
+		提示：双击小部件可以立即刷新
+	</string>
+	<string name="version">
+		v0.0.2
+	</string>
+	<string name="configure_instructions">
+		请输入电池编号、token和城市代码\n双击小部件可以立即刷新
+	</string>
+	<string name="battery_status">
+		电池状态
+	</string>
+	<string name="github_link">
+		https://github.com/bestK/xiaoha-battery-widget
+	</string>
+	<string-array name="refresh_intervals">
+		<item>
+			1分钟
+		</item>
+		<item>
+			5分钟
+		</item>
+		<item>
+			15分钟
+		</item>
+		<item>
+			30分钟
+		</item>
+		<item>
+			1小时
+		</item>
+		<item>
+			2小时
+		</item>
+		<item>
+			4小时
+		</item>
+		<item>
+			8小时
+		</item>
+	</string-array>
+	<integer-array name="refresh_interval_values">
+		<item>
+			1
+		</item>
+		<item>
+			5
+		</item>
+		<item>
+			15
+		</item>
+		<item>
+			30
+		</item>
+		<item>
+			60
+		</item>
+		<item>
+			120
+		</item>
+		<item>
+			240
+		</item>
+		<item>
+			480
+		</item>
+	</integer-array>
+</resources>

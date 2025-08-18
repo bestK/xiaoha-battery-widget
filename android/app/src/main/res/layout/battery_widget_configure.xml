@@ -1,148 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/content_view"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:gravity="center"
-                android:text="@string/app_name"
-                android:textAppearance="@style/TextAppearance.AppCompat.Title" />
-
-            <!-- 使用说明部分 -->
-            <TextView
-                android:id="@+id/guide_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/guide_background"
-                android:padding="16dp"
-                android:text="@string/guide_text"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-            <!-- GitHub 仓库链接 -->
-            <LinearLayout
-                android:id="@+id/github_container"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:layout_marginBottom="24dp"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:orientation="horizontal"
-                android:padding="8dp">
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginEnd="8dp"
-                    android:src="@drawable/ic_github" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/github_link"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-                    android:textColor="?attr/colorPrimary" />
-            </LinearLayout>
-
-            <!-- 配置部分 -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/battery_no_hint"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-            <EditText
-                android:id="@+id/battery_no_edit"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:hint="@string/battery_no_hint"
-                android:importantForAutofill="no"
-                android:inputType="text" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/city_code_hint"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-            <EditText
-                android:id="@+id/city_code_edit"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:hint="@string/city_code_hint"
-                android:importantForAutofill="no"
-                android:inputType="number"
-                android:maxLength="4" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/base_url_hint"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-            <EditText
-                android:id="@+id/base_url_edit"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:hint="@string/base_url_hint"
-                android:importantForAutofill="no"
-                android:inputType="textUri" />
-
-            <!-- 刷新间隔配置 -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/refresh_interval_label"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-            <Spinner
-                android:id="@+id/refresh_interval_spinner"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:minHeight="48dp" />
-
-
-
-            <Button
-                android:id="@+id/add_button"
-                android:layout_width="288dp"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="@string/add_widget" />
-
-            <TextView
-                android:gravity="center"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:text="@string/version"
-                android:textAppearance="@style/TextAppearance.AppCompat.Caption"
-                android:textColor="?android:textColorSecondary" />
-        </LinearLayout>
-    </ScrollView>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/content_view" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp">
+	<ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
+		<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:gravity="center" android:text="@string/app_name" android:textAppearance="@style/TextAppearance.AppCompat.Title" />
+			<!-- 使用说明部分 -->
+			<TextView android:id="@+id/guide_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:background="@drawable/guide_background" android:padding="16dp" android:text="@string/guide_text" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+			<!-- GitHub 仓库链接 -->
+			<LinearLayout android:id="@+id/github_container" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_marginBottom="24dp" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:padding="8dp">
+				<ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_marginEnd="8dp" android:src="@drawable/ic_github" />
+				<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/github_link" android:textAppearance="@style/TextAppearance.AppCompat.Body1" android:textColor="?attr/colorPrimary" />
+			</LinearLayout>
+			<!-- 配置部分 -->
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/battery_no_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+			<EditText android:id="@+id/battery_no_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:hint="@string/battery_no_hint" android:importantForAutofill="no" android:inputType="text" />
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/city_code_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+			<EditText android:id="@+id/city_code_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:hint="@string/city_code_hint" android:importantForAutofill="no" android:inputType="number" android:maxLength="4" />
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/token_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+			<EditText android:id="@+id/token_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:hint="@string/token_hint" android:importantForAutofill="no" android:inputType="text" />
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/base_url_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+			<EditText android:id="@+id/base_url_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:hint="@string/base_url_hint" android:importantForAutofill="no" android:inputType="textUri" />
+			<!-- 刷新间隔配置 -->
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/refresh_interval_label" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+			<Spinner android:id="@+id/refresh_interval_spinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:minHeight="48dp" />
+			<Button android:id="@+id/add_button" android:layout_width="288dp" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="@string/add_widget" />
+			<TextView android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:text="@string/version" android:textAppearance="@style/TextAppearance.AppCompat.Caption" android:textColor="?android:textColorSecondary" />
+		</LinearLayout>
+	</ScrollView>
 </LinearLayout>
