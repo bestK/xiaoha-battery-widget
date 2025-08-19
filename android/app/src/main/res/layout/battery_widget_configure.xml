@@ -22,8 +22,22 @@
 			<!-- 刷新间隔配置 -->
 			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/refresh_interval_label" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
 			<Spinner android:id="@+id/refresh_interval_spinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:minHeight="48dp" />
+			<!-- 测试按钮 -->
+			<Button android:id="@+id/test_button" style="@style/Widget.AppCompat.Button.Colored" android:layout_width="288dp" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginBottom="16dp" android:text="测试接口连接" />
 			<Button android:id="@+id/add_button" android:layout_width="288dp" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="@string/add_widget" />
-			<TextView android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:text="@string/version" android:textAppearance="@style/TextAppearance.AppCompat.Caption" android:textColor="?android:textColorSecondary" />
+			<!-- 测试结果显示区域 -->
+			<LinearLayout android:id="@+id/test_result_container" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" android:orientation="vertical" android:visibility="gone">
+				<!-- 日志控制按钮 -->
+				<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+					<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="测试日志" android:textAppearance="@style/TextAppearance.AppCompat.Body2" android:gravity="center_vertical" />
+					<Button android:id="@+id/copy_log_button" style="@style/Widget.AppCompat.Button.Borderless" android:layout_width="wrap_content" android:layout_height="36dp" android:text="复制" android:textSize="12sp" android:minWidth="60dp" android:paddingStart="8dp" android:paddingEnd="8dp" />
+					<Button android:id="@+id/clear_log_button" style="@style/Widget.AppCompat.Button.Borderless" android:layout_width="wrap_content" android:layout_height="36dp" android:text="清空" android:textSize="12sp" android:minWidth="60dp" android:paddingStart="8dp" android:paddingEnd="8dp" />
+				</LinearLayout>
+				<ScrollView android:id="@+id/test_result_scroll" android:layout_width="match_parent" android:layout_height="250dp" android:background="@android:color/black" android:padding="8dp" android:scrollbars="vertical" android:fadeScrollbars="false">
+					<TextView android:id="@+id/test_result_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:textColor="@android:color/white" android:textSize="12sp" android:textIsSelectable="true" android:text="" />
+				</ScrollView>
+			</LinearLayout>
+			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:gravity="center" android:text="@string/version" android:textAppearance="@style/TextAppearance.AppCompat.Caption" android:textColor="?android:textColorSecondary" />
 		</LinearLayout>
 	</ScrollView>
 </LinearLayout>

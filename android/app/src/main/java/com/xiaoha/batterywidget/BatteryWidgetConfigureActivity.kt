@@ -6,11 +6,17 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -20,6 +26,23 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import com.xiaoha.batterywidget.api.BatteryService
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
@@ -29,6 +52,12 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var baseUrlEdit: EditText
     private lateinit var refreshIntervalSpinner: Spinner
     private lateinit var addButton: Button
+    private lateinit var testButton: Button
+    private lateinit var testResultContainer: LinearLayout
+    private lateinit var testResultScroll: ScrollView
+    private lateinit var testResultText: TextView
+    private lateinit var copyLogButton: Button
+    private lateinit var clearLogButton: Button
     
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +120,12 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         baseUrlEdit = findViewById(R.id.base_url_edit)
         refreshIntervalSpinner = findViewById(R.id.refresh_interval_spinner)
         addButton = findViewById(R.id.add_button)
+        testButton = findViewById(R.id.test_button)
+        testResultContainer = findViewById(R.id.test_result_container)
+        testResultScroll = findViewById(R.id.test_result_scroll)
+        testResultText = findViewById(R.id.test_result_text)
+        copyLogButton = findViewById(R.id.copy_log_button)
+        clearLogButton = findViewById(R.id.clear_log_button)
 
         // 添加 GitHub 链接点击事件
         findViewById<View>(R.id.github_container).setOnClickListener {
@@ -132,6 +167,21 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         // 设置保存按钮点击事件
         addButton.setOnClickListener {
             saveConfiguration()
+        }
+        
+        // 设置测试按钮点击事件
+        testButton.setOnClickListener {
+            testApiConnection()
+        }
+        
+        // 设置复制日志按钮点击事件
+        copyLogButton.setOnClickListener {
+            copyLogToClipboard()
+        }
+        
+        // 设置清空日志按钮点击事件
+        clearLogButton.setOnClickListener {
+            clearLog()
         }
     }
 
@@ -214,6 +264,263 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         tokenEdit.isEnabled = enabled
         refreshIntervalSpinner.isEnabled = enabled
         addButton.isEnabled = enabled
+        testButton.isEnabled = enabled
+        copyLogButton.isEnabled = enabled
+        clearLogButton.isEnabled = enabled
+    }
+
+    private fun testApiConnection() {
+        val batteryNo = batteryNoEdit.text.toString().trim()
+        val token = tokenEdit.text.toString().trim()
+        val baseUrl = baseUrlEdit.text.toString().trim().let {
+            if (it.isEmpty()) "https://xiaoha.linkof.link/" else it
+        }
+
+        if (batteryNo.isEmpty()) {
+            Toast.makeText(this, "请输入电池编号", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (token.isEmpty()) {
+            Toast.makeText(this, "请输入token", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 显示测试结果区域
+        testResultContainer.visibility = View.VISIBLE
+        testResultText.text = "开始测试连接...\n"
+        
+        // 禁用输入
+        setInputsEnabled(false)
+        testButton.text = "测试中..."
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                appendTestResult("=== 开始API测试 ===")
+                appendTestResult("电池编号: $batteryNo")
+                appendTestResult("基础URL: $baseUrl")
+                appendTestResult("Token: ${token.take(20)}...")
+                appendTestResult("")
+
+                // 创建API服务
+                val loggingInterceptor = HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                }
+                val okHttpClient = OkHttpClient.Builder()
+                    .addInterceptor(loggingInterceptor)
+                    .build()
+
+                val retrofit = Retrofit.Builder()
+                    .baseUrl(baseUrl)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .client(okHttpClient)
+                    .build()
+
+                val apiService = retrofit.create(BatteryService::class.java)
+
+                // 步骤1: 获取预处理参数
+                appendTestResult("步骤1: 获取预处理参数")
+                appendTestResult("请求URL: ${baseUrl}preparams?batteryNo=$batteryNo")
+                appendTestResult("请求方法: POST")
+                appendTestResult("请求Body: $token")
+                
+                val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
+                val preparamsResponse = withTimeout(10000) {
+                    apiService.getPreparams(batteryNo, tokenRequestBody).awaitResponse()
+                }
+
+                if (preparamsResponse == null || !preparamsResponse.isSuccessful) {
+                    throw Exception("预处理参数请求失败: ${preparamsResponse?.code()} ${preparamsResponse?.message()}")
+                }
+
+                val preparamsData = preparamsResponse.body()?.data
+                if (preparamsData == null) {
+                    throw Exception("预处理参数响应数据无效")
+                }
+
+                appendTestResult("响应状态码: ${preparamsResponse.code()}")
+                appendTestResult("响应内容: ${preparamsResponse.body()}")
+                appendTestResult("获取到的URL: ${preparamsData.url}")
+                appendTestResult("获取到的Body长度: ${preparamsData.body.length}")
+                appendTestResult("获取到的Headers: ${preparamsData.headers}")
+                appendTestResult("")
+
+                // 步骤2: 使用预处理参数获取电池数据
+                appendTestResult("步骤2: 获取电池数据")
+                appendTestResult("请求URL: ${preparamsData.url}")
+                appendTestResult("请求方法: POST")
+                appendTestResult("请求Body长度: ${preparamsData.body.length}")
+                
+                val batteryRequestBody = preparamsData.body.toRequestBody("application/json".toMediaType())
+                val batteryResponse = withTimeout(10000) {
+                    // 创建新的OkHttpClient，设置headers
+                    val batteryClient = OkHttpClient.Builder()
+                        .addInterceptor { chain ->
+                            val originalRequest = chain.request()
+                            val newRequestBuilder = originalRequest.newBuilder()
+                            
+                            // 添加从preparams响应中获取的headers
+                            preparamsData.headers.forEach { (key, value) ->
+                                newRequestBuilder.addHeader(key, value)
+                                appendTestResult("添加Header: $key = $value")
+                            }
+                            
+                            chain.proceed(newRequestBuilder.build())
+                        }
+                        .addInterceptor(loggingInterceptor)
+                        .build()
+                    
+                    // 创建新的retrofit实例用于调用不同的base URL
+                    val batteryRetrofit = Retrofit.Builder()
+                        .baseUrl("https://dummy.base.url/")
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .client(batteryClient)
+                        .build()
+                    val batteryService = batteryRetrofit.create(BatteryService::class.java)
+                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody).awaitResponse()
+                }
+
+                if (batteryResponse == null || !batteryResponse.isSuccessful) {
+                    throw Exception("电池数据请求失败: ${batteryResponse?.code()} ${batteryResponse?.message()}")
+                }
+
+                val encryptedData = batteryResponse.body()
+                if (encryptedData == null) {
+                    throw Exception("电池数据响应为空")
+                }
+
+                // 一次性读取响应数据，避免重复读取
+                val encryptedBytes = try {
+                    encryptedData.bytes()
+                } catch (e: Exception) {
+                    appendTestResult("读取响应数据失败: ${e.message}")
+                    throw Exception("读取电池数据失败: ${e.message}")
+                }
+                
+                appendTestResult("响应状态码: ${batteryResponse.code()}")
+                appendTestResult("响应Content-Type: ${batteryResponse.headers()["Content-Type"]}")
+                appendTestResult("响应Content-Length: ${batteryResponse.headers()["Content-Length"]}")
+                appendTestResult("实际数据长度: ${encryptedBytes.size} bytes")
+                
+                // 显示数据的十六进制预览（前32字节）
+                val preview = encryptedBytes.take(32).joinToString("") { "%02x".format(it) }
+                appendTestResult("数据预览(hex): $preview${if (encryptedBytes.size > 32) "..." else ""}")
+                appendTestResult("")
+
+                // 步骤3: 解码电池数据
+                appendTestResult("步骤3: 解码电池数据")
+                appendTestResult("请求URL: ${baseUrl}decode")
+                appendTestResult("请求方法: POST")
+                appendTestResult("请求Body: 二进制数据 (${encryptedBytes.size} bytes)")
+                
+                val decodeRequestBody = encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
+                val decodeResponse = withTimeout(10000) {
+                    apiService.decodeBatteryData(decodeRequestBody).awaitResponse()
+                }
+
+                if (decodeResponse == null || !decodeResponse.isSuccessful) {
+                    throw Exception("解码请求失败: ${decodeResponse?.code()} ${decodeResponse?.message()}")
+                }
+
+                val decodeData = decodeResponse.body()?.data?.data
+                if (decodeData == null || decodeData.bindBatteries.isEmpty()) {
+                    throw Exception("解码响应数据无效或电池数据为空")
+                }
+
+                val batteryInfo = decodeData.bindBatteries[0]
+                
+                appendTestResult("响应状态码: ${decodeResponse.code()}")
+                appendTestResult("解码响应: ${decodeResponse.body()}")
+                appendTestResult("")
+                appendTestResult("=== 解析结果 ===")
+                appendTestResult("电池电量: ${batteryInfo.batteryLife}%")
+                appendTestResult("报告时间: ${batteryInfo.reportTime}")
+                
+                // 解析时间格式 (reportTime是时间戳)
+                val reportTime = try {
+                    // 尝试解析为时间戳（毫秒）
+                    Date(batteryInfo.reportTime.toLong())
+                } catch (e: Exception) {
+                    try {
+                        // 如果不是时间戳，尝试解析为ISO格式
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(batteryInfo.reportTime) 
+                            ?: Date()
+                    } catch (e2: Exception) {
+                        appendTestResult("时间解析失败: ${e.message}")
+                        Date()
+                    }
+                }
+                
+                val formattedTime = SimpleDateFormat("M/d HH:mm", Locale.US).format(reportTime)
+                appendTestResult("格式化时间: $formattedTime")
+                appendTestResult("")
+                appendTestResult("✅ 测试完成，接口调用成功！")
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@BatteryWidgetConfigureActivity, "测试成功！", Toast.LENGTH_SHORT).show()
+                }
+                
+            } catch (e: Exception) {
+                appendTestResult("❌ 测试失败: ${e.message}")
+                appendTestResult("错误详情: ${e.stackTraceToString()}")
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@BatteryWidgetConfigureActivity, "测试失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    setInputsEnabled(true)
+                    testButton.text = "测试接口连接"
+                }
+            }
+        }
+    }
+
+    private fun appendTestResult(text: String) {
+        lifecycleScope.launch(Dispatchers.Main) {
+            testResultText.append("$text\n")
+            // 自动滚动到底部
+            testResultScroll.post {
+                testResultScroll.fullScroll(View.FOCUS_DOWN)
+            }
+        }
+    }
+
+    private fun copyLogToClipboard() {
+        val logContent = testResultText.text.toString()
+        if (logContent.isEmpty()) {
+            Toast.makeText(this, "没有日志可复制", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipData = ClipData.newPlainText("测试日志", logContent)
+        clipboardManager.setPrimaryClip(clipData)
+        
+        Toast.makeText(this, "日志已复制到剪贴板", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun clearLog() {
+        testResultText.text = ""
+        Toast.makeText(this, "日志已清空", Toast.LENGTH_SHORT).show()
+    }
+
+    // 扩展函数：将Retrofit Call转换为挂起函数
+    private suspend fun <T> Call<T>.awaitResponse(): Response<T> {
+        return suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation {
+                cancel()
+            }
+            enqueue(object : Callback<T> {
+                override fun onResponse(call: Call<T>, response: Response<T>) {
+                    continuation.resume(response)
+                }
+
+                override fun onFailure(call: Call<T>, t: Throwable) {
+                    continuation.resumeWithException(t)
+                }
+            })
+        }
     }
 
     private fun checkAndRequestExactAlarmPermission() {

@@ -24,10 +24,16 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
@@ -245,7 +251,7 @@ class BatteryWidget : AppWidgetProvider() {
                 // 步骤1: 获取预处理参数
                 val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
                 val preparamsResponse = withTimeout(10000) {
-                    apiService?.getPreparams(batteryNo, tokenRequestBody)?.execute()
+                    apiService?.getPreparams(batteryNo, tokenRequestBody)?.awaitResponse()
                 }
 
                 if (preparamsResponse == null || !preparamsResponse.isSuccessful) {
@@ -262,13 +268,33 @@ class BatteryWidget : AppWidgetProvider() {
                 // 步骤2: 使用预处理参数获取电池数据
                 val batteryRequestBody = preparamsData.body.toRequestBody("application/json".toMediaType())
                 val batteryResponse = withTimeout(10000) {
+                    // 创建新的OkHttpClient，设置headers
+                    val loggingInterceptor = HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BODY
+                    }
+                    val batteryClient = OkHttpClient.Builder()
+                        .addInterceptor { chain ->
+                            val originalRequest = chain.request()
+                            val newRequestBuilder = originalRequest.newBuilder()
+                            
+                            // 添加从preparams响应中获取的headers
+                            preparamsData.headers.forEach { (key, value) ->
+                                newRequestBuilder.addHeader(key, value)
+                            }
+                            
+                            chain.proceed(newRequestBuilder.build())
+                        }
+                        .addInterceptor(loggingInterceptor)
+                        .build()
+                    
                     // 创建新的retrofit实例用于调用不同的base URL
                     val batteryRetrofit = Retrofit.Builder()
                         .baseUrl("https://dummy.base.url/") // 占位符，因为我们使用@Url
                         .addConverterFactory(GsonConverterFactory.create())
+                        .client(batteryClient)
                         .build()
                     val batteryService = batteryRetrofit.create(BatteryService::class.java)
-                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody).execute()
+                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody).awaitResponse()
                 }
 
                 if (batteryResponse == null || !batteryResponse.isSuccessful) {
@@ -280,12 +306,15 @@ class BatteryWidget : AppWidgetProvider() {
                     throw Exception("电池数据响应为空")
                 }
 
+                // 一次性读取响应数据，避免重复读取
+                val encryptedBytes = encryptedData.bytes()
+                
                 Log.d(TAG, "电池数据获取成功，开始解码")
 
                 // 步骤3: 解码电池数据
-                val decodeRequestBody = encryptedData.bytes().toRequestBody("application/octet-stream".toMediaType())
+                val decodeRequestBody = encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
                 val decodeResponse = withTimeout(10000) {
-                    apiService?.decodeBatteryData(decodeRequestBody)?.execute()
+                    apiService?.decodeBatteryData(decodeRequestBody)?.awaitResponse()
                 }
 
                 if (decodeResponse == null || !decodeResponse.isSuccessful) {
@@ -300,14 +329,19 @@ class BatteryWidget : AppWidgetProvider() {
                 val batteryInfo = decodeData.bindBatteries[0]
                 Log.d(TAG, "解码成功，电池电量: ${batteryInfo.batteryLife}%")
 
-                // 解析时间格式 (reportTime是字符串格式)
+                // 解析时间格式 (reportTime是时间戳)
                 val reportTime = try {
-                    // 假设reportTime是ISO格式或者其他格式，需要根据实际情况调整
-                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(batteryInfo.reportTime) 
-                        ?: Date()
+                    // 尝试解析为时间戳（毫秒）
+                    Date(batteryInfo.reportTime.toLong())
                 } catch (e: Exception) {
-                    Log.w(TAG, "时间解析失败，使用当前时间: ${batteryInfo.reportTime}", e)
-                    Date()
+                    try {
+                        // 如果不是时间戳，尝试解析为ISO格式
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(batteryInfo.reportTime) 
+                            ?: Date()
+                    } catch (e2: Exception) {
+                        Log.w(TAG, "时间解析失败，使用当前时间: ${batteryInfo.reportTime}", e)
+                        Date()
+                    }
                 }
                 
                 val formattedTime = dateFormat.format(reportTime)
@@ -360,5 +394,23 @@ class BatteryWidget : AppWidgetProvider() {
             SystemClock.elapsedRealtime() + refreshInterval * 60 * 1000L,
             pendingIntent
         )
+    }
+
+    // 扩展函数：将Retrofit Call转换为挂起函数
+    private suspend fun <T> Call<T>.awaitResponse(): Response<T> {
+        return suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation {
+                cancel()
+            }
+            enqueue(object : Callback<T> {
+                override fun onResponse(call: Call<T>, response: Response<T>) {
+                    continuation.resume(response)
+                }
+
+                override fun onFailure(call: Call<T>, t: Throwable) {
+                    continuation.resumeWithException(t)
+                }
+            })
+        }
     }
 } 
