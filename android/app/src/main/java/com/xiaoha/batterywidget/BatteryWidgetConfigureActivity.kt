@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -53,11 +54,14 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var refreshIntervalSpinner: Spinner
     private lateinit var addButton: Button
     private lateinit var testButton: Button
+    private lateinit var checkUpdateButton: Button
     private lateinit var testResultContainer: LinearLayout
     private lateinit var testResultScroll: ScrollView
     private lateinit var testResultText: TextView
     private lateinit var copyLogButton: Button
     private lateinit var clearLogButton: Button
+    
+    private lateinit var versionManager: VersionManager
     
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +76,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
 
         // 初始化视图引用
         initViews()
+        
+        // 初始化版本管理器
+        versionManager = VersionManager(this)
 
 
         // 在后台初始化
@@ -101,6 +108,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 // 在主线程更新UI
                 withContext(Dispatchers.Main) {
                     setupViews(initData)
+                    
+                    // 检查版本更新
+                    checkForUpdates()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -121,6 +131,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         refreshIntervalSpinner = findViewById(R.id.refresh_interval_spinner)
         addButton = findViewById(R.id.add_button)
         testButton = findViewById(R.id.test_button)
+        checkUpdateButton = findViewById(R.id.check_update_button)
         testResultContainer = findViewById(R.id.test_result_container)
         testResultScroll = findViewById(R.id.test_result_scroll)
         testResultText = findViewById(R.id.test_result_text)
@@ -172,6 +183,11 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         // 设置测试按钮点击事件
         testButton.setOnClickListener {
             testApiConnection()
+        }
+        
+        // 设置检查更新按钮点击事件
+        checkUpdateButton.setOnClickListener {
+            manualCheckForUpdates()
         }
         
         // 设置复制日志按钮点击事件
@@ -265,6 +281,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         refreshIntervalSpinner.isEnabled = enabled
         addButton.isEnabled = enabled
         testButton.isEnabled = enabled
+        checkUpdateButton.isEnabled = enabled
         copyLogButton.isEnabled = enabled
         clearLogButton.isEnabled = enabled
     }
@@ -503,6 +520,44 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private fun clearLog() {
         testResultText.text = ""
         Toast.makeText(this, "日志已清空", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun checkForUpdates() {
+        lifecycleScope.launch {
+            try {
+                val (hasUpdate, latestVersion, downloadUrl) = withContext(Dispatchers.IO) {
+                    versionManager.checkForUpdate()
+                }
+                
+                if (hasUpdate && latestVersion != null && downloadUrl != null) {
+                    versionManager.showUpdateDialog(latestVersion, downloadUrl)
+                }
+            } catch (e: Exception) {
+                Log.e("VersionCheck", "Error checking for updates", e)
+                // 版本检查失败不应该影响主要功能，所以这里只记录日志
+            }
+        }
+    }
+
+    private fun manualCheckForUpdates() {
+        lifecycleScope.launch {
+            try {
+                Toast.makeText(this@BatteryWidgetConfigureActivity, "正在检查更新...", Toast.LENGTH_SHORT).show()
+                
+                val (hasUpdate, latestVersion, downloadUrl) = withContext(Dispatchers.IO) {
+                    versionManager.forceCheckForUpdate()
+                }
+                
+                if (hasUpdate && latestVersion != null && downloadUrl != null) {
+                    versionManager.showUpdateDialog(latestVersion, downloadUrl)
+                } else {
+                    Toast.makeText(this@BatteryWidgetConfigureActivity, "当前已是最新版本", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("VersionCheck", "Error checking for updates", e)
+                Toast.makeText(this@BatteryWidgetConfigureActivity, "检查更新失败", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // 扩展函数：将Retrofit Call转换为挂起函数

@@ -1,43 +1,252 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/content_view" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp">
-	<ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
-		<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:gravity="center" android:text="@string/app_name" android:textAppearance="@style/TextAppearance.AppCompat.Title" />
-			<!-- 使用说明部分 -->
-			<TextView android:id="@+id/guide_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:background="@drawable/guide_background" android:padding="16dp" android:text="@string/guide_text" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-			<!-- GitHub 仓库链接 -->
-			<LinearLayout android:id="@+id/github_container" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_marginBottom="24dp" android:background="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:orientation="horizontal" android:padding="8dp">
-				<ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_marginEnd="8dp" android:src="@drawable/ic_github" />
-				<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/github_link" android:textAppearance="@style/TextAppearance.AppCompat.Body1" android:textColor="?attr/colorPrimary" />
-			</LinearLayout>
-			<!-- 配置部分 -->
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/battery_no_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-			<EditText android:id="@+id/battery_no_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:hint="@string/battery_no_hint" android:importantForAutofill="no" android:inputType="text" />
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/city_code_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-			<EditText android:id="@+id/city_code_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:hint="@string/city_code_hint" android:importantForAutofill="no" android:inputType="number" android:maxLength="4" />
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/token_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-			<EditText android:id="@+id/token_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:hint="@string/token_hint" android:importantForAutofill="no" android:inputType="text" />
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/base_url_hint" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-			<EditText android:id="@+id/base_url_edit" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:hint="@string/base_url_hint" android:importantForAutofill="no" android:inputType="textUri" />
-			<!-- 刷新间隔配置 -->
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp" android:text="@string/refresh_interval_label" android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-			<Spinner android:id="@+id/refresh_interval_spinner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:minHeight="48dp" />
-			<!-- 测试按钮 -->
-			<Button android:id="@+id/test_button" style="@style/Widget.AppCompat.Button.Colored" android:layout_width="288dp" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginBottom="16dp" android:text="测试接口连接" />
-			<Button android:id="@+id/add_button" android:layout_width="288dp" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:text="@string/add_widget" />
-			<!-- 测试结果显示区域 -->
-			<LinearLayout android:id="@+id/test_result_container" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" android:orientation="vertical" android:visibility="gone">
-				<!-- 日志控制按钮 -->
-				<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
-					<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="测试日志" android:textAppearance="@style/TextAppearance.AppCompat.Body2" android:gravity="center_vertical" />
-					<Button android:id="@+id/copy_log_button" style="@style/Widget.AppCompat.Button.Borderless" android:layout_width="wrap_content" android:layout_height="36dp" android:text="复制" android:textSize="12sp" android:minWidth="60dp" android:paddingStart="8dp" android:paddingEnd="8dp" />
-					<Button android:id="@+id/clear_log_button" style="@style/Widget.AppCompat.Button.Borderless" android:layout_width="wrap_content" android:layout_height="36dp" android:text="清空" android:textSize="12sp" android:minWidth="60dp" android:paddingStart="8dp" android:paddingEnd="8dp" />
-				</LinearLayout>
-				<ScrollView android:id="@+id/test_result_scroll" android:layout_width="match_parent" android:layout_height="250dp" android:background="@android:color/black" android:padding="8dp" android:scrollbars="vertical" android:fadeScrollbars="false">
-					<TextView android:id="@+id/test_result_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:textColor="@android:color/white" android:textSize="12sp" android:textIsSelectable="true" android:text="" />
-				</ScrollView>
-			</LinearLayout>
-			<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="16dp" android:gravity="center" android:text="@string/version" android:textAppearance="@style/TextAppearance.AppCompat.Caption" android:textColor="?android:textColorSecondary" />
-		</LinearLayout>
-	</ScrollView>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/content_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center"
+                android:text="@string/app_name"
+                android:textAppearance="@style/TextAppearance.AppCompat.Title" />
+            <!-- 使用说明部分 -->
+            <TextView
+                android:id="@+id/guide_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/guide_background"
+                android:padding="16dp"
+                android:text="@string/guide_text"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+            <!-- GitHub 仓库链接 -->
+            <LinearLayout
+                android:id="@+id/github_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="24dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="8dp"
+                    android:src="@drawable/ic_github" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/github_link"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                    android:textColor="?attr/colorPrimary" />
+            </LinearLayout>
+            <!-- 配置部分 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/battery_no_hint"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+
+            <EditText
+                android:id="@+id/battery_no_edit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:hint="@string/battery_no_hint"
+                android:importantForAutofill="no"
+                android:inputType="text" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/city_code_hint"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+
+            <EditText
+                android:id="@+id/city_code_edit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:hint="@string/city_code_hint"
+                android:importantForAutofill="no"
+                android:inputType="number"
+                android:maxLength="4" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/token_hint"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+
+            <EditText
+                android:id="@+id/token_edit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:hint="@string/token_hint"
+                android:importantForAutofill="no"
+                android:inputType="text" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/base_url_hint"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+
+            <EditText
+                android:id="@+id/base_url_edit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:hint="@string/base_url_hint"
+                android:importantForAutofill="no"
+                android:inputType="textUri" />
+            <!-- 刷新间隔配置 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/refresh_interval_label"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+
+            <Spinner
+                android:id="@+id/refresh_interval_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:minHeight="48dp" />
+            <!-- 功能按钮区域 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal">
+                <!-- 测试按钮 -->
+                <Button
+                    android:id="@+id/test_button"
+                    style="@style/Widget.AppCompat.Button.Colored"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:text="测试接口连接" />
+                <!-- 检查更新按钮 -->
+                <Button
+                    android:id="@+id/check_update_button"
+                    style="@style/Widget.AppCompat.Button.Borderless.Colored"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:drawableLeft="@android:drawable/stat_sys_download_done"
+                    android:drawablePadding="4dp"
+                    android:text="检查更新" />
+            </LinearLayout>
+            <!-- 保存按钮 -->
+            <Button
+                android:id="@+id/add_button"
+                android:layout_width="288dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="@string/add_widget" />
+            <!-- 测试结果显示区域 -->
+            <LinearLayout
+                android:id="@+id/test_result_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <!-- 日志控制按钮 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="测试日志"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Body2" />
+
+                    <Button
+                        android:id="@+id/copy_log_button"
+                        style="@style/Widget.AppCompat.Button.Borderless"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:minWidth="60dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:text="复制"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/clear_log_button"
+                        style="@style/Widget.AppCompat.Button.Borderless"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:minWidth="60dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:text="清空"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ScrollView
+                    android:id="@+id/test_result_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="250dp"
+                    android:background="@android:color/black"
+                    android:fadeScrollbars="false"
+                    android:padding="8dp"
+                    android:scrollbars="vertical">
+
+                    <TextView
+                        android:id="@+id/test_result_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text=""
+                        android:textColor="@android:color/white"
+                        android:textIsSelectable="true"
+                        android:textSize="12sp" />
+                </ScrollView>
+            </LinearLayout>
+            <!-- 版本信息 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center"
+                android:text="@string/version"
+                android:textAppearance="@style/TextAppearance.AppCompat.Caption"
+                android:textColor="?android:textColorSecondary" />
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>
