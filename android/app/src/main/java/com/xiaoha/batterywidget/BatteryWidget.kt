@@ -45,11 +45,12 @@ class BatteryWidget : AppWidgetProvider() {
     companion object {
         private var logoBitmap: Bitmap? = null
         private val updateJobs = ConcurrentHashMap<Int, Job>()
-        private val dateFormat = SimpleDateFormat("M/d HH:mm", Locale.US)
+        private val dateFormat = SimpleDateFormat("M/d HH:mm", Locale.CHINA)
         private const val TAG = "BatteryWidget"
         private const val ACTION_REFRESH = "com.xiaoha.batterywidget.ACTION_REFRESH"
         private const val DOUBLE_CLICK_TIMEOUT = 500L // 双击超时时间（毫秒）
         private val lastClickTimes = mutableMapOf<Int, Long>() // 记录每个小部件的最后点击时间
+        private var notificationManager: NotificationManager? = null
 
 
         private var apiService: BatteryService? = null
@@ -336,7 +337,7 @@ class BatteryWidget : AppWidgetProvider() {
                 } catch (e: Exception) {
                     try {
                         // 如果不是时间戳，尝试解析为ISO格式
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(batteryInfo.reportTime) 
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.CHINA).parse(batteryInfo.reportTime) 
                             ?: Date()
                     } catch (e2: Exception) {
                         Log.w(TAG, "时间解析失败，使用当前时间: ${batteryInfo.reportTime}", e)
@@ -347,11 +348,21 @@ class BatteryWidget : AppWidgetProvider() {
                 val formattedTime = dateFormat.format(reportTime)
 
                 withContext(Dispatchers.Main) {
-                    views.setProgressBar(R.id.progress_circle, 100, batteryInfo.batteryLife, false)
-                    views.setTextViewText(R.id.percent_text, "${batteryInfo.batteryLife}%")
-                    views.setTextViewText(R.id.battery_no, batteryNo)
-                    views.setTextViewText(R.id.update_time, formattedTime)
-                    Log.d(TAG, "小部件更新成功")
+                                                    views.setProgressBar(R.id.progress_circle, 100, batteryInfo.batteryLife, false)
+                                views.setTextViewText(R.id.percent_text, "${batteryInfo.batteryLife}%")
+                                views.setTextViewText(R.id.battery_no, batteryNo)
+                                views.setTextViewText(R.id.update_time, formattedTime)
+                                Log.d(TAG, "小部件更新成功")
+                                
+                                // 发送通知
+                                if (notificationManager == null) {
+                                    notificationManager = NotificationManager(context)
+                                }
+                                notificationManager?.showBatteryUpdateNotification(
+                                    batteryNo,
+                                    batteryInfo.batteryLife,
+                                    formattedTime
+                                )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating widget", e)

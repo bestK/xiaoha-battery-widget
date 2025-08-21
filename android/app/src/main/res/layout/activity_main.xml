@@ -9,40 +9,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:gravity="center"
-        android:text="@string/app_name"
-        android:textAppearance="@style/TextAppearance.AppCompat.Title" />
+        android:textAppearance="@style/TextAppearance.AppCompat.Title"
+        android:text="电池电量小部件" />
 
     <TextView
-        android:id="@+id/widget_count_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:gravity="center"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+        android:text="正在检查小部件状态..." />
 
-    <Button
-        android:id="@+id/add_widget_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="@string/add_new_widget" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:gravity="center"
-        android:text="@string/usage_guide"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body2" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="start"
-        android:lineSpacingExtra="4dp"
-        android:text="@string/"
-        android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
-
-</LinearLayout> 
+</LinearLayout>

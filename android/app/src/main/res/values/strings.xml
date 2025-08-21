@@ -55,9 +55,11 @@
 	<string name="configure_instructions">
 		请输入电池编号、token和城市代码\n双击小部件可以立即刷新
 	</string>
-	<string name="battery_status">
-		电池状态
-	</string>
+	    <string name="battery_status">
+        电池状态
+    </string>
+    <string name="add_widget_tip">请长按桌面空白处，选择小部件，然后添加"小哈电池小部件"。</string>
+    <string name="add_widget_title">添加小部件</string>
 	<string name="github_link">
 		https://github.com/bestK/xiaoha-battery-widget
 	</string>

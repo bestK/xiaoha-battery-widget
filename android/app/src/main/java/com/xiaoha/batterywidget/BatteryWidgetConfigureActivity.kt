@@ -3,12 +3,16 @@ package com.xiaoha.batterywidget
 import android.app.AlarmManager
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.Manifest
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
@@ -47,6 +51,28 @@ import java.util.Locale
 
 class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    
+    // 通知权限请求
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(this, "通知权限已授予", Toast.LENGTH_SHORT).show()
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle("通知权限")
+                .setMessage("为了及时通知您电池电量的变化，请在设置中开启通知权限。")
+                .setPositiveButton("去设置") { _, _ ->
+                    // 打开应用设置页面
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    }
+                    startActivity(intent)
+                }
+                .setNegativeButton("取消", null)
+                .show()
+        }
+    }
     private lateinit var batteryNoEdit: EditText
     private lateinit var cityCodeEdit: EditText
     private lateinit var tokenEdit: EditText
@@ -60,6 +86,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var testResultText: TextView
     private lateinit var copyLogButton: Button
     private lateinit var clearLogButton: Button
+    private lateinit var notificationSwitch: androidx.appcompat.widget.SwitchCompat
     
     private lateinit var versionManager: VersionManager
     
@@ -79,7 +106,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         
         // 初始化版本管理器
         versionManager = VersionManager(this)
-
+        
+        // 检查并请求通知权限
+        checkAndRequestNotificationPermission()
 
         // 在后台初始化
         lifecycleScope.launch {
@@ -87,30 +116,65 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 // 在后台线程准备数据
                 val initData = withContext(Dispatchers.Default) {
                     val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
-                    val savedBatteryNo = prefs.getString("batteryNo_$appWidgetId", "")
-                    val savedCityCode = prefs.getString("cityCode_$appWidgetId", "0755")
-                    val savedToken = prefs.getString("token_$appWidgetId", "")
-                    val savedRefreshInterval = prefs.getInt("refreshInterval_$savedBatteryNo", 5)
+                    // 获取已保存的配置
+                    val savedBatteryNo = prefs.getString("lastBatteryNo", "")
+                    val savedCityCode = prefs.getString("lastCityCode", "0755")
+                    val savedToken = prefs.getString("lastToken", "")
+                    val savedRefreshInterval = prefs.getInt("lastRefreshInterval", 5)
+
+                    // 检查是否是从小部件配置启动的
+                    val isFromWidget = intent?.hasExtra(AppWidgetManager.EXTRA_APPWIDGET_ID) == true
+
+                    // 如果是从小部件配置启动，检查是否已有该小部件的配置
+                    val existingBatteryNo = if (isFromWidget) {
+                        prefs.getString("batteryNo_$appWidgetId", null)
+                    } else null
                     val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link/")
                     val refreshIntervals = resources.getStringArray(R.array.refresh_intervals)
                     val intervals = resources.getIntArray(R.array.refresh_interval_values)
                     val position = intervals.indexOf(savedRefreshInterval)
+                    
+                    // 如果是从小部件配置启动，并且有已保存的配置
+                    if (isFromWidget && savedBatteryNo?.isNotEmpty() == true && savedToken?.isNotEmpty() == true && existingBatteryNo == null) {
+                        // 保存配置到新的小部件
+                        prefs.edit {
+                            putString("batteryNo_$appWidgetId", savedBatteryNo)
+                            putString("cityCode_$appWidgetId", savedCityCode)
+                            putString("token_$appWidgetId", savedToken)
+                            putInt("refreshInterval_$savedBatteryNo", savedRefreshInterval)
+                        }
+                        // 更新小部件
+                        val appWidgetManager = AppWidgetManager.getInstance(this@BatteryWidgetConfigureActivity)
+                        val widget = BatteryWidget()
+                        widget.onUpdate(this@BatteryWidgetConfigureActivity, appWidgetManager, intArrayOf(appWidgetId))
+                        
+                        // 设置结果并关闭活动
+                        val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        setResult(RESULT_OK, resultValue)
+                        finish()
+                        return@withContext null
+                    }
+                    
+                    // 返回配置数据
                     InitData(
-                        savedBatteryNo.toString(),
-                        savedCityCode.toString(),
-                        savedToken.toString(),
-                        baseUrl.toString(),
+                        savedBatteryNo ?: "",
+                        savedCityCode ?: "0755",
+                        savedToken ?: "",
+                        baseUrl ?: "https://xiaoha.linkof.link/",
                         position,
-                        refreshIntervals,
+                        refreshIntervals
                     )
                 }
 
-                // 在主线程更新UI
-                withContext(Dispatchers.Main) {
-                    setupViews(initData)
-                    
-                    // 检查版本更新
-                    checkForUpdates()
+                // 如果initData为null，说明已经自动配置并关闭了活动
+                if (initData != null) {
+                    // 在主线程更新UI
+                    withContext(Dispatchers.Main) {
+                        setupViews(initData)
+                        
+                        // 检查版本更新
+                        checkForUpdates()
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -137,6 +201,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         testResultText = findViewById(R.id.test_result_text)
         copyLogButton = findViewById(R.id.copy_log_button)
         clearLogButton = findViewById(R.id.clear_log_button)
+        notificationSwitch = findViewById(R.id.notification_switch)
 
         // 添加 GitHub 链接点击事件
         findViewById<View>(R.id.github_container).setOnClickListener {
@@ -159,6 +224,24 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         cityCodeEdit.setText(initData.cityCode)
         tokenEdit.setText(initData.token)
         baseUrlEdit.setText(initData.baseUrl)
+        
+        // 设置通知开关状态
+        notificationSwitch.isChecked = NotificationManager.isNotificationEnabled(this, initData.batteryNo)
+        notificationSwitch.setOnCheckedChangeListener { _, isChecked ->
+            NotificationManager.setNotificationEnabled(this, initData.batteryNo, isChecked)
+            
+            // 如果打开通知，发送测试通知
+            if (isChecked) {
+                val notificationManager = NotificationManager(this)
+                notificationManager.showBatteryUpdateNotification(
+                    initData.batteryNo,
+                    100, // 测试用100%电量
+                    SimpleDateFormat("M/d HH:mm", Locale.CHINA).format(Date()), // 当前时间
+                    true
+                )
+                Toast.makeText(this, "已发送测试通知", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         // 设置刷新间隔选项
         val adapter = ArrayAdapter(
@@ -237,7 +320,6 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 withContext(Dispatchers.IO) {
                     val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
                     prefs.edit {
-
                         // 保存电池号、城市代码和token
                         putString("batteryNo_$appWidgetId", batteryNo)
                         putString("cityCode_$appWidgetId", cityCode)
@@ -248,6 +330,11 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                         val selectedInterval = intervals[refreshIntervalSpinner.selectedItemPosition]
                         putInt("refreshInterval_$batteryNo", selectedInterval)
 
+                        // 保存最后一次的配置，用于下次添加小部件时自动填充
+                        putString("lastBatteryNo", batteryNo)
+                        putString("lastCityCode", cityCode)
+                        putString("lastToken", token)
+                        putInt("lastRefreshInterval", selectedInterval)
                     }
 
                     // 更新小部件
@@ -460,7 +547,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     try {
                         // 如果不是时间戳，尝试解析为ISO格式
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).parse(batteryInfo.reportTime) 
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.CHINA).parse(batteryInfo.reportTime) 
                             ?: Date()
                     } catch (e2: Exception) {
                         appendTestResult("时间解析失败: ${e.message}")
@@ -468,10 +555,22 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     }
                 }
                 
-                val formattedTime = SimpleDateFormat("M/d HH:mm", Locale.US).format(reportTime)
+                val formattedTime = SimpleDateFormat("M/d HH:mm", Locale.CHINA).format(reportTime)
                 appendTestResult("格式化时间: $formattedTime")
                 appendTestResult("")
                 appendTestResult("✅ 测试完成，接口调用成功！")
+                
+                // 如果通知开关打开，发送测试通知
+                if (notificationSwitch.isChecked) {
+                    val notificationManager = NotificationManager(this@BatteryWidgetConfigureActivity)
+                    notificationManager.showBatteryUpdateNotification(
+                        batteryNo,
+                        batteryInfo.batteryLife,
+                        formattedTime,
+                        true
+                    )
+                    appendTestResult("已发送测试通知")
+                }
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@BatteryWidgetConfigureActivity, "测试成功！", Toast.LENGTH_SHORT).show()
@@ -585,6 +684,34 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 // 跳转系统设置界面让用户授权
                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                 startActivity(intent)
+            }
+        }
+    }
+    
+    private fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    // 已经有权限，不需要做任何事
+                }
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                    // 用户之前拒绝过，显示解释对话框
+                    AlertDialog.Builder(this)
+                        .setTitle("需要通知权限")
+                        .setMessage("为了及时通知您电池电量的变化，我们需要通知权限。")
+                        .setPositiveButton("授予权限") { _, _ ->
+                            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        .setNegativeButton("取消", null)
+                        .show()
+                }
+                else -> {
+                    // 直接请求权限
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         }
     }
