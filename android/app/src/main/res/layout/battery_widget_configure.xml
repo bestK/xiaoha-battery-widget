@@ -169,31 +169,34 @@
                 <!-- 测试按钮 -->
                 <Button
                     android:id="@+id/test_button"
-                    style="@style/Widget.AppCompat.Button.Colored"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
-                    android:text="测试接口连接" />
+                    android:background="@drawable/button_primary"
+                    android:text="测试接口连接"
+                    android:textColor="#FFFFFF" />
                 <!-- 检查更新按钮 -->
                 <Button
                     android:id="@+id/check_update_button"
-                    style="@style/Widget.AppCompat.Button.Borderless.Colored"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_height="48dp" 
                     android:layout_weight="1"
-                    android:drawableLeft="@android:drawable/stat_sys_download_done"
+                    android:background="@drawable/button_secondary"
                     android:drawablePadding="4dp"
-                    android:text="检查更新" />
+                    android:text="检查更新"
+                    android:textColor="#FFFFFF" />
             </LinearLayout>
             <!-- 保存按钮 -->
             <Button
                 android:id="@+id/add_button"
-                android:layout_width="288dp"
-                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
                 android:layout_gravity="center_horizontal"
-                android:text="@string/add_widget" />
+                android:layout_marginHorizontal="16dp"
+                android:background="@drawable/button_primary"
+                android:text="@string/add_widget"
+                android:textColor="#FFFFFF" />
             <!-- 测试结果显示区域 -->
             <LinearLayout
                 android:id="@+id/test_result_container"
@@ -220,24 +223,27 @@
 
                     <Button
                         android:id="@+id/copy_log_button"
-                        style="@style/Widget.AppCompat.Button.Borderless"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="32dp"
                         android:minWidth="60dp"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
+                        android:background="@drawable/button_secondary"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
                         android:text="复制"
+                        android:textColor="#FFFFFF"
                         android:textSize="12sp" />
 
                     <Button
                         android:id="@+id/clear_log_button"
-                        style="@style/Widget.AppCompat.Button.Borderless"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="32dp"
+                        android:layout_marginStart="8dp"
                         android:minWidth="60dp"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
+                        android:background="@drawable/button_secondary"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
                         android:text="清空"
+                        android:textColor="#FFFFFF"
                         android:textSize="12sp" />
                 </LinearLayout>
 
@@ -265,6 +271,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
                 android:layout_marginBottom="16dp"
                 android:gravity="center"
                 android:text="@string/version"

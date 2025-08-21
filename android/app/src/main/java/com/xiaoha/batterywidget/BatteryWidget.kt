@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
@@ -400,9 +401,11 @@ class BatteryWidget : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
-        alarmManager.setExact(
+        val intervalMillis = refreshInterval * 60 * 1000L
+        alarmManager.setRepeating(
             AlarmManager.ELAPSED_REALTIME,
-            SystemClock.elapsedRealtime() + refreshInterval * 60 * 1000L,
+            SystemClock.elapsedRealtime() + intervalMillis,
+            intervalMillis,
             pendingIntent
         )
     }
