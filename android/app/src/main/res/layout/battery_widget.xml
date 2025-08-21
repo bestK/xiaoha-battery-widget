@@ -2,7 +2,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_layout"
     android:layout_width="140dp"
-    android:layout_height="140dp"
+    android:layout_height="160dp"
     android:background="@drawable/widget_background"
     android:padding="4dp">
 
