@@ -67,16 +67,26 @@ async function createWidget() {
         const reportDate = new Date(reportTime);
         const formattedTime = `${reportDate.getMonth() + 1}/${reportDate.getDate()} ${reportDate.getHours()}:${String(reportDate.getMinutes()).padStart(2, '0')}`;
 
+        // 获取上次记录的电量
+        const lastBatteryKey = `last_battery_${batteryNo}`;
+        const lastBatteryLife = Keychain.contains(lastBatteryKey) ? parseInt(Keychain.get(lastBatteryKey)) : null;
+
         // 检查电量是否低于阈值并找出最小的触发阈值
         const triggeredThresholds = batteryLifeNotice.filter(threshold => batteryLife < threshold);
         if (triggeredThresholds.length > 0) {
             const lowestThreshold = Math.min(...triggeredThresholds);
-            const notification = new Notification();
-            notification.title = '电池电量提醒';
-            notification.body = `电池${batteryNo}电量已降至${batteryLife}%，低于${lowestThreshold}%`;
-            // 立即发送通知
-            notification.schedule();
+            // 只在电量发生变化时发送通知
+            if (lastBatteryLife !== batteryLife) {
+                const notification = new Notification();
+                notification.title = '电池电量提醒';
+                notification.body = `电池${batteryNo}电量已降至${batteryLife}%，低于${lowestThreshold}%`;
+                // 立即发送通知
+                notification.schedule();
+            }
         }
+
+        // 保存当前电量
+        Keychain.set(lastBatteryKey, batteryLife.toString());
 
         widget.setPadding(0, 0, 0, 0);
 
