@@ -45,12 +45,12 @@ import java.util.concurrent.ConcurrentHashMap
 class BatteryWidget : AppWidgetProvider() {
     companion object {
         private var logoBitmap: Bitmap? = null
-        private val updateJobs = ConcurrentHashMap<Int, Job>()
+        private var currentJob: Job? = null
         private val dateFormat = SimpleDateFormat("M/d HH:mm", Locale.CHINA)
         private const val TAG = "BatteryWidget"
         private const val ACTION_REFRESH = "com.xiaoha.batterywidget.ACTION_REFRESH"
         private const val DOUBLE_CLICK_TIMEOUT = 500L // 双击超时时间（毫秒）
-        private val lastClickTimes = mutableMapOf<Int, Long>() // 记录每个小部件的最后点击时间
+        private var lastClickTime: Long = 0 // 记录最后点击时间
         private var notificationManager: NotificationManager? = null
 
 
@@ -92,47 +92,42 @@ class BatteryWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        Log.d(TAG, "onUpdate called for widget IDs: ${appWidgetIds.joinToString()}")
+        Log.d(TAG, "onUpdate called")
         init(context)
         val prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
-        for (appWidgetId in appWidgetIds) {
-            if (appWidgetId == 0) {
-                Log.d(TAG, "忽略无效的 widgetId: 0")
-                continue
-            }
-            val batteryNo = prefs.getString("batteryNo_$appWidgetId", "") ?: ""
-            if (batteryNo.isEmpty()) {
-                Log.d(TAG, "widgetId $appWidgetId 未配置电池号，跳过刷新和定时任务")
-                continue
-            }
-            // 1. 立即刷新
-            updateAppWidget(context, appWidgetManager, appWidgetId, "onUpdate")
-            // 2. 设置定时任务
-            setAlarmManager(context, batteryNo, prefs.getInt("refreshInterval_$batteryNo", 5))
+        val batteryNo = prefs.getString("batteryNo", "") ?: ""
+        
+        if (batteryNo.isEmpty()) {
+            Log.d(TAG, "未配置电池号，跳过刷新和定时任务")
+            return
         }
+        
+        // 1. 立即刷新
+        updateAppWidget(context, appWidgetManager, appWidgetIds[0], "onUpdate")
+        // 2. 设置定时任务
+        setAlarmManager(context, batteryNo, prefs.getInt("refreshInterval", 5))
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
-        Log.d(TAG, "onDeleted called for widget IDs: ${appWidgetIds.joinToString()}")
+        Log.d(TAG, "onDeleted called")
+        
+        currentJob?.cancel()
+        currentJob = null
 
-        appWidgetIds.forEach { appWidgetId ->
-            updateJobs[appWidgetId]?.cancel()
-            updateJobs.remove(appWidgetId)
-
-            // 清除配置
-            context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
-                .edit()
-                .remove("batteryNo_$appWidgetId")
-                .apply()
-        }
+        // 清除配置
+        context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .apply()
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         Log.d(TAG, "Widget disabled")
         coroutineScope.cancel()
-        updateJobs.clear()
+        currentJob?.cancel()
+        currentJob = null
         logoBitmap = null
     }
 
@@ -141,48 +136,36 @@ class BatteryWidget : AppWidgetProvider() {
 
         if (intent.action == ACTION_REFRESH) {
             Log.i(TAG, "onReceive: ACTION_REFRESH")
-            val appWidgetId = intent.getIntExtra(
-                AppWidgetManager.EXTRA_APPWIDGET_ID,
-                AppWidgetManager.INVALID_APPWIDGET_ID
-            )
-            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                val currentTime = SystemClock.elapsedRealtime()
-                val lastClickTime = lastClickTimes[appWidgetId] ?: 0L
+            val currentTime = SystemClock.elapsedRealtime()
 
-                if (currentTime - lastClickTime <= DOUBLE_CLICK_TIMEOUT) {
-                    // 双击检测到，立即刷新
+            if (currentTime - lastClickTime <= DOUBLE_CLICK_TIMEOUT) {
+                // 双击检测到，立即刷新
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val widgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, BatteryWidget::class.java))
+                if (widgetIds.isNotEmpty()) {
                     updateAppWidget(
                         context,
-                        AppWidgetManager.getInstance(context),
-                        appWidgetId,
+                        appWidgetManager,
+                        widgetIds[0],
                         "doubleClick"
                     )
-                    lastClickTimes.remove(appWidgetId) // 清除点击记录
-                } else {
-                    // 单击，打开配置页面
-                    val configIntent =
-                        Intent(context, BatteryWidgetConfigureActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        }
-                    context.startActivity(configIntent)
-                    // 记录点击时间用于双击检测
-                    lastClickTimes[appWidgetId] = currentTime
                 }
+                lastClickTime = 0L // 清除点击记录
+            } else {
+                // 单击，打开配置页面
+                val configIntent = Intent(context, BatteryWidgetConfigureActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(configIntent)
+                // 记录点击时间用于双击检测
+                lastClickTime = currentTime
             }
         } else if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
             Log.i(TAG, "onReceive: ACTION_APPWIDGET_UPDATE")
-            val batteryNo = intent.getStringExtra("batteryNo")
-            if (!batteryNo.isNullOrEmpty()) {
-                val prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                val allWidgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, BatteryWidget::class.java))
-                for (widgetId in allWidgetIds) {
-                    val widgetBatteryNo = prefs.getString("batteryNo_$widgetId", "")
-                    if (widgetBatteryNo == batteryNo) {
-                        updateAppWidget(context, appWidgetManager, widgetId, "AlarmManager")
-                    }
-                }
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val widgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, BatteryWidget::class.java))
+            if (widgetIds.isNotEmpty()) {
+                updateAppWidget(context, appWidgetManager, widgetIds[0], "AlarmManager")
             }
         }
     }
@@ -235,11 +218,11 @@ class BatteryWidget : AppWidgetProvider() {
 
         // 获取配置
         val prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
-        val batteryNo = prefs.getString("batteryNo_$appWidgetId", "") ?: ""
-        val token = prefs.getString("token_$appWidgetId", "") ?: ""
+        val batteryNo = prefs.getString("batteryNo", "") ?: ""
+        val token = prefs.getString("token", "") ?: ""
 
         if (batteryNo.isEmpty() || token.isEmpty()) {
-            Log.d(TAG, "No battery number or token configured for widget ID: $appWidgetId")
+            Log.d(TAG, "No battery number or token configured")
             updateErrorState(views, "点击配置")
             appWidgetManager.updateAppWidget(appWidgetId, views)
             return
@@ -395,15 +378,14 @@ class BatteryWidget : AppWidgetProvider() {
     }
 
     private fun setAlarmManager(context: Context, batteryNo: String, refreshInterval: Int) {
-        Log.i(TAG, "setAlarmManager: add job batteryNo: $batteryNo refreshInterval: $refreshInterval")
+        Log.i(TAG, "setAlarmManager: refreshInterval: $refreshInterval")
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val updateIntent = Intent(context, BatteryWidget::class.java).apply {
             action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            putExtra("batteryNo", batteryNo)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            batteryNo.hashCode(), // 用 batteryNo 的 hashCode 作为唯一标识
+            0, // 固定的请求码，因为只有一个小组件
             updateIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

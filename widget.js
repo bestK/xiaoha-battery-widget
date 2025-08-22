@@ -3,7 +3,8 @@
  * 版本：v0.0.3
  * 源码地址：https://github.com/bestK/xiaoha-battery-widget
  */
-const batteryNo = '8903115649'; // ← 可改成你的电池编号
+// 从 Keychain 中获取电池编号
+const batteryNo = args.widgetParameter || '8903115649'; // 使用小部件参数或默认值
 const token = '你的token'; // stream 抓包获取的 token
 const batteryLifeNotice = [90, 30, 25, 10]; // 通知电量阈值
 const widget = new ListWidget();
@@ -80,8 +81,8 @@ async function createWidget() {
         const triggeredThresholds = batteryLifeNotice.filter(threshold => batteryLife < threshold);
         if (triggeredThresholds.length > 0) {
             const lowestThreshold = Math.min(...triggeredThresholds);
-            // 只在电量发生变化时发送通知
-            if (lastBatteryLife !== batteryLife) {
+            // 只在电量发生变化，且低于阈值时发送通知
+            if (lastBatteryLife !== batteryLife && batteryLife < lowestThreshold) {
                 const notification = new Notification();
                 notification.title = '电池电量提醒';
                 notification.body = `电池${batteryNo}电量已降至${batteryLife}%，低于${lowestThreshold}%`;
