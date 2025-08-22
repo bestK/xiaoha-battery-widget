@@ -1,6 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-</resources> 
+    <!-- 旧的主题色（兼容性） -->
+    <color name="purple_200">#BBDEFB</color>
+    <color name="purple_500">#3B82F6</color>
+    <color name="purple_700">#2563EB</color>
+    <color name="teal_200">#80CBC4</color>
+    <color name="teal_700">#00796B</color>
+    
+    <!-- 主题色 -->
+    <color name="primary">@color/purple_500</color>
+    <color name="primary_variant">@color/purple_700</color>
+    
+    <!-- 中性色 -->
+    <color name="background">#FAFAFA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="text_primary">#333333</color>
+    <color name="text_secondary">#666666</color>
+    <color name="divider">#E5E7EB</color>
+    
+    <!-- 功能色 -->
+    <color name="success">#10B981</color>
+    <color name="error">#EF4444</color>
+    <color name="warning">#F59E0B</color>
+    
+    <!-- 按钮色 -->
+    <color name="button_primary">@color/primary</color>
+    <color name="button_secondary">#E5E7EB</color>
+    <color name="button_text_primary">#FFFFFF</color>
+    <color name="button_text_secondary">@color/text_primary</color>
+</resources>
