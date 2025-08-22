@@ -88,8 +88,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var clearLogButton: TagView
     private lateinit var notificationSwitch: androidx.appcompat.widget.SwitchCompat
 
-    private lateinit var versionManager: VersionManager
-
+        private lateinit var versionManager: VersionManager
+    private lateinit var versionText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -185,6 +185,15 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         copyLogButton = findViewById<TagView>(R.id.copy_log_button)
         clearLogButton = findViewById<TagView>(R.id.clear_log_button)
         notificationSwitch = findViewById(R.id.notification_switch)
+        versionText = findViewById(R.id.version)
+
+        // 设置版本号
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            versionText.text = "v${packageInfo.versionName}"
+        } catch (e: Exception) {
+            versionText.text = "v1.0.0"
+        }
 
         // 添加 GitHub 链接点击事件
         findViewById<View>(R.id.github_container).setOnClickListener {
@@ -654,6 +663,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     versionManager.checkForUpdate()
                 }
 
+                Log.d("VersionCheck", "hasUpdate: $hasUpdate, latestVersion: $latestVersion, downloadUrl: $downloadUrl")
+
                 if (hasUpdate && latestVersion != null && downloadUrl != null) {
                     versionManager.showUpdateDialog(latestVersion, downloadUrl)
                 }
@@ -676,6 +687,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 val (hasUpdate, latestVersion, downloadUrl) = withContext(Dispatchers.IO) {
                     versionManager.forceCheckForUpdate()
                 }
+
+                Log.d("VersionCheck", "hasUpdate: $hasUpdate, latestVersion: $latestVersion, downloadUrl: $downloadUrl")
+
 
                 if (hasUpdate && latestVersion != null && downloadUrl != null) {
                     versionManager.showUpdateDialog(latestVersion, downloadUrl)

@@ -122,7 +122,35 @@ class VersionManager(private val context: Context) {
      */
     suspend fun forceCheckForUpdate(): Triple<Boolean, String?, String?> {
         Log.d(TAG, "Force checking for app updates...")
-        return performVersionCheck()
+        try {
+            val response = gitHubService.getLatestRelease(REPO_OWNER, REPO_NAME).execute()
+            
+            if (response.isSuccessful) {
+                val release = response.body()
+                if (release != null && !release.prerelease) {
+                    val currentVersion = getCurrentVersionName()
+                    val latestVersion = release.tag_name
+                    
+                    Log.d(TAG, "Current version: $currentVersion, Latest version: $latestVersion")
+                    
+                    if (isNewerVersion(currentVersion, latestVersion)) {
+                        Log.i(TAG, "New version available: $latestVersion")
+                        return Triple(true, latestVersion, release.html_url)
+                    } else {
+                        Log.d(TAG, "App is up to date")
+                    }
+                } else {
+                    Log.w(TAG, "No stable release found or response is null")
+                }
+            } else {
+                Log.e(TAG, "GitHub API request failed: ${response.code()} ${response.message()}")
+            }
+            
+            return Triple(false, null, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking for updates", e)
+            return Triple(false, null, null)
+        }
     }
 
     /**
