@@ -1,3 +1,8 @@
+/**
+ * 小哈电池电量提醒小部件
+ * 版本：v0.0.3
+ * 源码地址：https://github.com/bestK/xiaoha-battery-widget
+ */
 const batteryNo = '8903115649'; // ← 可改成你的电池编号
 const token = '你的token'; // stream 抓包获取的 token
 const batteryLifeNotice = [90, 30, 25, 10]; // 通知电量阈值
