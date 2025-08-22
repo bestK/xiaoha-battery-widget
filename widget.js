@@ -1,5 +1,6 @@
 const batteryNo = '8903115649'; // ← 可改成你的电池编号
 const token = '你的token'; // stream 抓包获取的 token
+const batteryLifeNotice = [90, 30, 25, 10]; // 通知电量阈值
 const widget = new ListWidget();
 widget.backgroundColor = new Color('#0088fe');
 
@@ -57,15 +58,25 @@ async function createWidget() {
             throw new Error('解码响应数据无效');
         }
 
-        const data = decode_res.data.data.bindBatteries[0];
+        const { reportTime, batteryLife } = decode_res.data.data.bindBatteries[0];
 
-        // 检查解码后的数据是否包含必要字段
-        if (!data || typeof data.batteryLife === 'undefined' || !data.reportTime) {
+        if (!batteryLife || typeof batteryLife === 'undefined' || !reportTime) {
             throw new Error('电池数据不完整');
         }
 
-        const reportDate = new Date(data.reportTime);
+        const reportDate = new Date(reportTime);
         const formattedTime = `${reportDate.getMonth() + 1}/${reportDate.getDate()} ${reportDate.getHours()}:${String(reportDate.getMinutes()).padStart(2, '0')}`;
+
+        // 检查电量是否低于阈值并找出最小的触发阈值
+        const triggeredThresholds = batteryLifeNotice.filter(threshold => batteryLife < threshold);
+        if (triggeredThresholds.length > 0) {
+            const lowestThreshold = Math.min(...triggeredThresholds);
+            const notification = new Notification();
+            notification.title = '电池电量提醒';
+            notification.body = `电池${batteryNo}电量已降至${batteryLife}%，低于${lowestThreshold}%`;
+            // 立即发送通知
+            notification.schedule();
+        }
 
         widget.setPadding(0, 0, 0, 0);
 
@@ -78,7 +89,7 @@ async function createWidget() {
 
         const progressStack = await progressCircle(
             centerStack,
-            data.batteryLife,
+            batteryLife,
             '#ffffff-#ffffff',
             'rgba(255,255,255,0.3)-rgba(255,255,255,0.3)',
             90,
@@ -88,7 +99,7 @@ async function createWidget() {
         const percentStack = progressStack.addStack();
         percentStack.centerAlignContent();
 
-        const percentText = percentStack.addText(`${data.batteryLife}%`);
+        const percentText = percentStack.addText(`${batteryLife}%`);
         percentText.font = Font.boldSystemFont(18);
         percentText.textColor = Color.white();
         percentText.centerAlignText();
