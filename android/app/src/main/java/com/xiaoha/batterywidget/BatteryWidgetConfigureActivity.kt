@@ -190,7 +190,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         // 设置版本号
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
-            versionText.text = "v${packageInfo.versionName}"
+            versionText.text = packageInfo.versionName
         } catch (e: Exception) {
             versionText.text = "v1.0.0"
         }
