@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="TagView">
+        <attr name="tagText" format="string" />
+        <attr name="tagType" format="enum">
+            <enum name="normal" value="0" />
+            <enum name="success" value="1" />
+            <enum name="warning" value="2" />
+            <enum name="danger" value="3" />
+            <enum name="info" value="4" />
+        </attr>
+        <!-- 引用系统的margin属性 -->
+        <attr name="android:layout_margin" />
+    </declare-styleable>
+</resources>

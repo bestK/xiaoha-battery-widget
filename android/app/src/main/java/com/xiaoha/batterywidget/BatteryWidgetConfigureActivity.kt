@@ -1,40 +1,39 @@
 package com.xiaoha.batterywidget
 
+import android.Manifest
 import android.app.AlarmManager
 import android.appwidget.AppWidgetManager
-import android.content.Intent
-import android.Manifest
-import android.os.Build
-import android.os.Bundle
-import android.provider.Settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
+import com.xiaoha.batterywidget.api.BatteryService
+import com.xiaoha.batterywidget.views.TagView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -44,14 +43,15 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import com.xiaoha.batterywidget.api.BatteryService
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    
+
     // 通知权限请求
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -79,17 +79,17 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var baseUrlEdit: EditText
     private lateinit var refreshIntervalSpinner: Spinner
     private lateinit var addButton: Button
-    private lateinit var testButton: Button
-    private lateinit var checkUpdateButton: Button
+    private lateinit var testButton: TagView
+    private lateinit var checkUpdateButton: TagView
     private lateinit var testResultContainer: LinearLayout
-    private lateinit var testResultScroll: ScrollView
+
     private lateinit var testResultText: TextView
-    private lateinit var copyLogButton: Button
-    private lateinit var clearLogButton: Button
+    private lateinit var copyLogButton: TagView
+    private lateinit var clearLogButton: TagView
     private lateinit var notificationSwitch: androidx.appcompat.widget.SwitchCompat
-    
+
     private lateinit var versionManager: VersionManager
-    
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -103,10 +103,10 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
 
         // 初始化视图引用
         initViews()
-        
+
         // 初始化版本管理器
         versionManager = VersionManager(this)
-        
+
         // 检查并请求通知权限
         checkAndRequestNotificationPermission()
 
@@ -116,50 +116,23 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 // 在后台线程准备数据
                 val initData = withContext(Dispatchers.Default) {
                     val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
-                    // 获取已保存的配置
-                    val savedBatteryNo = prefs.getString("lastBatteryNo", "")
-                    val savedCityCode = prefs.getString("lastCityCode", "0755")
-                    val savedToken = prefs.getString("lastToken", "")
-                    val savedRefreshInterval = prefs.getInt("lastRefreshInterval", 5)
 
-                    // 检查是否是从小部件配置启动的
-                    val isFromWidget = intent?.hasExtra(AppWidgetManager.EXTRA_APPWIDGET_ID) == true
-
-                    // 如果是从小部件配置启动，检查是否已有该小部件的配置
-                    val existingBatteryNo = if (isFromWidget) {
-                        prefs.getString("batteryNo_$appWidgetId", null)
-                    } else null
+                    // 读取保存的配置
+                    val batteryNo = prefs.getString("batteryNo", "")
+                    val cityCode = prefs.getString("cityCode", "0755")
+                    val token = prefs.getString("token", "")
                     val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link/")
+                    val refreshInterval = prefs.getInt("refreshInterval", 5)
+
                     val refreshIntervals = resources.getStringArray(R.array.refresh_intervals)
                     val intervals = resources.getIntArray(R.array.refresh_interval_values)
-                    val position = intervals.indexOf(savedRefreshInterval)
-                    
-                    // 如果是从小部件配置启动，并且有已保存的配置
-                    if (isFromWidget && savedBatteryNo?.isNotEmpty() == true && savedToken?.isNotEmpty() == true && existingBatteryNo == null) {
-                        // 保存配置到新的小部件
-                        prefs.edit {
-                            putString("batteryNo_$appWidgetId", savedBatteryNo)
-                            putString("cityCode_$appWidgetId", savedCityCode)
-                            putString("token_$appWidgetId", savedToken)
-                            putInt("refreshInterval_$savedBatteryNo", savedRefreshInterval)
-                        }
-                        // 更新小部件
-                        val appWidgetManager = AppWidgetManager.getInstance(this@BatteryWidgetConfigureActivity)
-                        val widget = BatteryWidget()
-                        widget.onUpdate(this@BatteryWidgetConfigureActivity, appWidgetManager, intArrayOf(appWidgetId))
-                        
-                        // 设置结果并关闭活动
-                        val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        setResult(RESULT_OK, resultValue)
-                        finish()
-                        return@withContext null
-                    }
-                    
+                    val position = intervals.indexOf(refreshInterval)
+
                     // 返回配置数据
                     InitData(
-                        savedBatteryNo ?: "",
-                        savedCityCode ?: "0755",
-                        savedToken ?: "",
+                        batteryNo ?: "",
+                        cityCode ?: "0755",
+                        token ?: "",
                         baseUrl ?: "https://xiaoha.linkof.link/",
                         position,
                         refreshIntervals
@@ -171,16 +144,18 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     // 在主线程更新UI
                     withContext(Dispatchers.Main) {
                         setupViews(initData)
-                        
+
                         // 检查版本更新
                         checkForUpdates()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@BatteryWidgetConfigureActivity, 
-                        "初始化失败：${e.message}", 
-                        Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        "初始化失败：${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     finish()
                 }
             }
@@ -197,17 +172,25 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         testButton = findViewById(R.id.test_button)
         checkUpdateButton = findViewById(R.id.check_update_button)
         testResultContainer = findViewById(R.id.test_result_container)
-        testResultScroll = findViewById(R.id.test_result_scroll)
-        testResultText = findViewById(R.id.test_result_text)
-        copyLogButton = findViewById(R.id.copy_log_button)
-        clearLogButton = findViewById(R.id.clear_log_button)
+
+        testResultText = findViewById<TextView>(R.id.test_result_text).apply {
+            // 设置触摸监听器，允许内部滚动
+            setOnTouchListener { v, event ->
+                // 告诉父视图不要拦截触摸事件
+                v.parent.requestDisallowInterceptTouchEvent(true)
+                // 返回false以允许正常的触摸事件处理
+                false
+            }
+        }
+        copyLogButton = findViewById<TagView>(R.id.copy_log_button)
+        clearLogButton = findViewById<TagView>(R.id.clear_log_button)
         notificationSwitch = findViewById(R.id.notification_switch)
 
         // 添加 GitHub 链接点击事件
         findViewById<View>(R.id.github_container).setOnClickListener {
             try {
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                   data = getString(R.string.github_link).toUri()
+                    data = getString(R.string.github_link).toUri()
                 }
                 startActivity(intent)
             } catch (e: Exception) {
@@ -217,19 +200,19 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     }
 
 
-
     private fun setupViews(initData: InitData) {
         // 设置已保存的值
         batteryNoEdit.setText(initData.batteryNo)
         cityCodeEdit.setText(initData.cityCode)
         tokenEdit.setText(initData.token)
         baseUrlEdit.setText(initData.baseUrl)
-        
+
         // 设置通知开关状态
-        notificationSwitch.isChecked = NotificationManager.isNotificationEnabled(this, initData.batteryNo)
+        notificationSwitch.isChecked =
+            NotificationManager.isNotificationEnabled(this, initData.batteryNo)
         notificationSwitch.setOnCheckedChangeListener { _, isChecked ->
             NotificationManager.setNotificationEnabled(this, initData.batteryNo, isChecked)
-            
+
             // 如果打开通知，发送测试通知
             if (isChecked) {
                 val notificationManager = NotificationManager(this)
@@ -262,22 +245,22 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         addButton.setOnClickListener {
             saveConfiguration()
         }
-        
+
         // 设置测试按钮点击事件
         testButton.setOnClickListener {
             testApiConnection()
         }
-        
+
         // 设置检查更新按钮点击事件
         checkUpdateButton.setOnClickListener {
             manualCheckForUpdates()
         }
-        
+
         // 设置复制日志按钮点击事件
         copyLogButton.setOnClickListener {
             copyLogToClipboard()
         }
-        
+
         // 设置清空日志按钮点击事件
         clearLogButton.setOnClickListener {
             clearLog()
@@ -291,7 +274,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             if (it.isEmpty()) "0755" else it
         }
         val token = tokenEdit.text.toString().trim()
-        
+
         if (batteryNo.isEmpty()) {
             AlertDialog.Builder(this@BatteryWidgetConfigureActivity)
                 .setTitle("保存失败")
@@ -300,7 +283,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 .show()
             return
         }
-        
+
         if (token.isEmpty()) {
             AlertDialog.Builder(this@BatteryWidgetConfigureActivity)
                 .setTitle("保存失败")
@@ -320,31 +303,42 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 withContext(Dispatchers.IO) {
                     val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
                     prefs.edit {
-                        // 保存电池号、城市代码和token
-                        putString("batteryNo_$appWidgetId", batteryNo)
-                        putString("cityCode_$appWidgetId", cityCode)
-                        putString("token_$appWidgetId", token)
+                        // 保存基本配置
+                        putString("batteryNo", batteryNo)
+                        putString("cityCode", cityCode)
+                        putString("token", token)
+                        putString("baseUrl", baseUrlEdit.text.toString().trim())
 
                         // 保存刷新间隔
                         val intervals = resources.getIntArray(R.array.refresh_interval_values)
-                        val selectedInterval = intervals[refreshIntervalSpinner.selectedItemPosition]
-                        putInt("refreshInterval_$batteryNo", selectedInterval)
+                        val selectedInterval =
+                            intervals[refreshIntervalSpinner.selectedItemPosition]
+                        putInt("refreshInterval", selectedInterval)
 
-                        // 保存最后一次的配置，用于下次添加小部件时自动填充
-                        putString("lastBatteryNo", batteryNo)
-                        putString("lastCityCode", cityCode)
-                        putString("lastToken", token)
-                        putInt("lastRefreshInterval", selectedInterval)
+                        // 保存通知设置
+                        putBoolean("notification_enabled", notificationSwitch.isChecked)
+
+                        // 保存配置版本号，用于后续配置格式升级
+                        putInt("configVersion", 1)
+
+                        // 立即写入磁盘
+                        commit()
                     }
 
                     // 更新小部件
-                    val appWidgetManager = AppWidgetManager.getInstance(this@BatteryWidgetConfigureActivity)
+                    val appWidgetManager =
+                        AppWidgetManager.getInstance(this@BatteryWidgetConfigureActivity)
                     val widget = BatteryWidget()
-                    widget.onUpdate(this@BatteryWidgetConfigureActivity, appWidgetManager, intArrayOf(appWidgetId))
+                    widget.onUpdate(
+                        this@BatteryWidgetConfigureActivity,
+                        appWidgetManager,
+                        intArrayOf(appWidgetId)
+                    )
                 }
 
                 // 设置结果并关闭活动
-                val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                val resultValue =
+                    Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 setResult(RESULT_OK, resultValue)
                 finish()
             } catch (e: Exception) {
@@ -393,10 +387,11 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         // 显示测试结果区域
         testResultContainer.visibility = View.VISIBLE
         testResultText.text = "开始测试连接...\n"
-        
+
         // 禁用输入
         setInputsEnabled(false)
         testButton.text = "测试中..."
+        testButton.type = TagView.TagType.WARNING
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -427,7 +422,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 appendTestResult("请求URL: ${baseUrl}preparams?batteryNo=$batteryNo")
                 appendTestResult("请求方法: POST")
                 appendTestResult("请求Body: $token")
-                
+
                 val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
                 val preparamsResponse = withTimeout(10000) {
                     apiService.getPreparams(batteryNo, tokenRequestBody).awaitResponse()
@@ -454,26 +449,27 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 appendTestResult("请求URL: ${preparamsData.url}")
                 appendTestResult("请求方法: POST")
                 appendTestResult("请求Body长度: ${preparamsData.body.length}")
-                
-                val batteryRequestBody = preparamsData.body.toRequestBody("application/json".toMediaType())
+
+                val batteryRequestBody =
+                    preparamsData.body.toRequestBody("application/json".toMediaType())
                 val batteryResponse = withTimeout(10000) {
                     // 创建新的OkHttpClient，设置headers
                     val batteryClient = OkHttpClient.Builder()
                         .addInterceptor { chain ->
                             val originalRequest = chain.request()
                             val newRequestBuilder = originalRequest.newBuilder()
-                            
+
                             // 添加从preparams响应中获取的headers
                             preparamsData.headers.forEach { (key, value) ->
                                 newRequestBuilder.addHeader(key, value)
                                 appendTestResult("添加Header: $key = $value")
                             }
-                            
+
                             chain.proceed(newRequestBuilder.build())
                         }
                         .addInterceptor(loggingInterceptor)
                         .build()
-                    
+
                     // 创建新的retrofit实例用于调用不同的base URL
                     val batteryRetrofit = Retrofit.Builder()
                         .baseUrl("https://dummy.base.url/")
@@ -481,7 +477,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                         .client(batteryClient)
                         .build()
                     val batteryService = batteryRetrofit.create(BatteryService::class.java)
-                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody).awaitResponse()
+                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody)
+                        .awaitResponse()
                 }
 
                 if (batteryResponse == null || !batteryResponse.isSuccessful) {
@@ -500,12 +497,12 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     appendTestResult("读取响应数据失败: ${e.message}")
                     throw Exception("读取电池数据失败: ${e.message}")
                 }
-                
+
                 appendTestResult("响应状态码: ${batteryResponse.code()}")
                 appendTestResult("响应Content-Type: ${batteryResponse.headers()["Content-Type"]}")
                 appendTestResult("响应Content-Length: ${batteryResponse.headers()["Content-Length"]}")
                 appendTestResult("实际数据长度: ${encryptedBytes.size} bytes")
-                
+
                 // 显示数据的十六进制预览（前32字节）
                 val preview = encryptedBytes.take(32).joinToString("") { "%02x".format(it) }
                 appendTestResult("数据预览(hex): $preview${if (encryptedBytes.size > 32) "..." else ""}")
@@ -516,8 +513,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 appendTestResult("请求URL: ${baseUrl}decode")
                 appendTestResult("请求方法: POST")
                 appendTestResult("请求Body: 二进制数据 (${encryptedBytes.size} bytes)")
-                
-                val decodeRequestBody = encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
+
+                val decodeRequestBody =
+                    encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
                 val decodeResponse = withTimeout(10000) {
                     apiService.decodeBatteryData(decodeRequestBody).awaitResponse()
                 }
@@ -532,14 +530,14 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 }
 
                 val batteryInfo = decodeData.bindBatteries[0]
-                
+
                 appendTestResult("响应状态码: ${decodeResponse.code()}")
                 appendTestResult("解码响应: ${decodeResponse.body()}")
                 appendTestResult("")
                 appendTestResult("=== 解析结果 ===")
                 appendTestResult("电池电量: ${batteryInfo.batteryLife}%")
                 appendTestResult("报告时间: ${batteryInfo.reportTime}")
-                
+
                 // 解析时间格式 (reportTime是时间戳)
                 val reportTime = try {
                     // 尝试解析为时间戳（毫秒）
@@ -547,22 +545,26 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     try {
                         // 如果不是时间戳，尝试解析为ISO格式
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.CHINA).parse(batteryInfo.reportTime) 
+                        SimpleDateFormat(
+                            "yyyy-MM-dd'T'HH:mm:ss",
+                            Locale.CHINA
+                        ).parse(batteryInfo.reportTime)
                             ?: Date()
                     } catch (e2: Exception) {
                         appendTestResult("时间解析失败: ${e.message}")
                         Date()
                     }
                 }
-                
+
                 val formattedTime = SimpleDateFormat("M/d HH:mm", Locale.CHINA).format(reportTime)
                 appendTestResult("格式化时间: $formattedTime")
                 appendTestResult("")
                 appendTestResult("✅ 测试完成，接口调用成功！")
-                
+
                 // 如果通知开关打开，发送测试通知
                 if (notificationSwitch.isChecked) {
-                    val notificationManager = NotificationManager(this@BatteryWidgetConfigureActivity)
+                    val notificationManager =
+                        NotificationManager(this@BatteryWidgetConfigureActivity)
                     notificationManager.showBatteryUpdateNotification(
                         batteryNo,
                         batteryInfo.batteryLife,
@@ -573,20 +575,40 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 }
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@BatteryWidgetConfigureActivity, "测试成功！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        "测试成功！",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
-                
+
             } catch (e: Exception) {
-                appendTestResult("❌ 测试失败: ${e.message}")
-                appendTestResult("错误详情: ${e.stackTraceToString()}")
-                
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException -> "无法连接到服务器，请检查网络连接或服务器地址是否正确"
+                    is java.net.SocketTimeoutException -> "连接服务器超时，请稍后重试"
+                    is retrofit2.HttpException -> "服务器返回错误: ${e.code()}"
+                    is java.io.IOException -> "网络错误: ${e.message}"
+                    else -> "未知错误: ${e.message}"
+                }
+
+                appendTestResult("❌ 测试失败: $errorMessage")
+                appendTestResult("错误类型: ${e.javaClass.simpleName}")
+                if (e !is java.net.UnknownHostException) {  // 对于DNS错误不显示堆栈
+                    appendTestResult("错误详情: ${e.stackTraceToString()}")
+                }
+
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@BatteryWidgetConfigureActivity, "测试失败: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        errorMessage,
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             } finally {
                 withContext(Dispatchers.Main) {
                     setInputsEnabled(true)
-                    testButton.text = "测试接口连接"
+                    testButton.type = TagView.TagType.INFO
+                    testButton.text = ""
                 }
             }
         }
@@ -596,8 +618,12 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.Main) {
             testResultText.append("$text\n")
             // 自动滚动到底部
-            testResultScroll.post {
-                testResultScroll.fullScroll(View.FOCUS_DOWN)
+            testResultText.post {
+                val scrollAmount =
+                    testResultText.layout.getLineTop(testResultText.lineCount) - testResultText.height
+                if (scrollAmount > 0) {
+                    testResultText.scrollTo(0, scrollAmount)
+                }
             }
         }
     }
@@ -608,11 +634,11 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             Toast.makeText(this, "没有日志可复制", Toast.LENGTH_SHORT).show()
             return
         }
-        
+
         val clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clipData = ClipData.newPlainText("测试日志", logContent)
         clipboardManager.setPrimaryClip(clipData)
-        
+
         Toast.makeText(this, "日志已复制到剪贴板", Toast.LENGTH_SHORT).show()
     }
 
@@ -627,7 +653,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 val (hasUpdate, latestVersion, downloadUrl) = withContext(Dispatchers.IO) {
                     versionManager.checkForUpdate()
                 }
-                
+
                 if (hasUpdate && latestVersion != null && downloadUrl != null) {
                     versionManager.showUpdateDialog(latestVersion, downloadUrl)
                 }
@@ -641,20 +667,32 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private fun manualCheckForUpdates() {
         lifecycleScope.launch {
             try {
-                Toast.makeText(this@BatteryWidgetConfigureActivity, "正在检查更新...", Toast.LENGTH_SHORT).show()
-                
+                Toast.makeText(
+                    this@BatteryWidgetConfigureActivity,
+                    "正在检查更新...",
+                    Toast.LENGTH_SHORT
+                ).show()
+
                 val (hasUpdate, latestVersion, downloadUrl) = withContext(Dispatchers.IO) {
                     versionManager.forceCheckForUpdate()
                 }
-                
+
                 if (hasUpdate && latestVersion != null && downloadUrl != null) {
                     versionManager.showUpdateDialog(latestVersion, downloadUrl)
                 } else {
-                    Toast.makeText(this@BatteryWidgetConfigureActivity, "当前已是最新版本", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        "当前已是最新版本",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } catch (e: Exception) {
                 Log.e("VersionCheck", "Error checking for updates", e)
-                Toast.makeText(this@BatteryWidgetConfigureActivity, "检查更新失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this@BatteryWidgetConfigureActivity,
+                    "检查更新失败",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
@@ -687,7 +725,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun checkAndRequestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when {
@@ -697,6 +735,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                 ) == PackageManager.PERMISSION_GRANTED -> {
                     // 已经有权限，不需要做任何事
                 }
+
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
                     // 用户之前拒绝过，显示解释对话框
                     AlertDialog.Builder(this)
@@ -708,6 +747,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                         .setNegativeButton("取消", null)
                         .show()
                 }
+
                 else -> {
                     // 直接请求权限
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)

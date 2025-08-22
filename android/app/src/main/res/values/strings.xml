@@ -50,7 +50,7 @@
 		提示：双击小部件可以立即刷新
 	</string>
 	<string name="version">
-		v0.0.6
+		v0.0.7
 	</string>
 	<string name="configure_instructions">
 		请输入电池编号、token和城市代码\n双击小部件可以立即刷新

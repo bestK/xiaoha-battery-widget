@@ -366,9 +366,16 @@ class BatteryWidget : AppWidgetProvider() {
                                 )
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating widget", e)
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException -> "网络连接失败"
+                    is java.net.SocketTimeoutException -> "连接超时"
+                    is retrofit2.HttpException -> "服务器错误"
+                    is java.io.IOException -> "网络错误"
+                    else -> "更新失败"
+                }
+                Log.e(TAG, "Error updating widget: $errorMessage", e)
                 withContext(Dispatchers.Main) {
-                    updateErrorState(views, "更新失败")
+                    updateErrorState(views, errorMessage)
                 }
             } finally {
                 withContext(Dispatchers.Main) {
