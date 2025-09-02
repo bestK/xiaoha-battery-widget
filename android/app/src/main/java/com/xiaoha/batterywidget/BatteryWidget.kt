@@ -39,6 +39,10 @@ import java.util.Date
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import batteryencryption.Batteryencryption
+import com.xiaoha.batterywidget.api.BatteryInfo
+import com.xiaoha.batterywidget.service.LocalBatteryService
+import com.xiaoha.batterywidget.utils.LocalEncryptionUtil
 
 class BatteryWidget : AppWidgetProvider() {
     companion object {
@@ -53,14 +57,19 @@ class BatteryWidget : AppWidgetProvider() {
 
 
         private var apiService: BatteryService? = null
+        private var localBatteryService: LocalBatteryService? = null
         private lateinit var prefs: SharedPreferences
         private lateinit var retrofit: Retrofit
 
         fun init(context: Context) {
             prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
             val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link/")!!
+            val useLocalEncryption = prefs.getBoolean("useLocalEncryption", false)
 
-            Log.d(TAG, String.format("init: baseUrl %s", baseUrl))
+            Log.d(TAG, String.format("init: baseUrl %s, useLocalEncryption %s", baseUrl, useLocalEncryption))
+
+            // 初始化本地加密服务
+            localBatteryService = LocalBatteryService(baseUrl)
 
             // 添加日志拦截器
             val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -244,89 +253,20 @@ class BatteryWidget : AppWidgetProvider() {
             try {
                 Log.d(TAG, "开始获取电池数据，batteryNo: $batteryNo")
 
-                // 步骤1: 获取预处理参数
-                val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
-                val preparamsResponse = withTimeout(10000) {
-                    apiService?.getPreparams(batteryNo, tokenRequestBody)?.awaitResponse()
+                // 检查是否使用本地加密
+                val useLocalEncryption = prefs.getBoolean("useLocalEncryption", false)
+                val cityCode = prefs.getString("cityCode", "0755") ?: "0755"
+                val batteryInfo = if (useLocalEncryption) {
+                    getBatteryDataWithLocalEncryption(batteryNo, token, cityCode)
+                } else {
+                    getBatteryDataWithRemoteAPI(batteryNo, token)
                 }
 
-                if (preparamsResponse == null || !preparamsResponse.isSuccessful) {
-                    throw Exception("预处理参数请求失败: ${preparamsResponse?.code()}")
+                if (batteryInfo == null) {
+                    throw Exception("获取电池数据失败")
                 }
 
-                val preparamsData = preparamsResponse.body()?.data
-                if (preparamsData == null) {
-                    throw Exception("预处理参数响应数据无效")
-                }
-
-                Log.d(TAG, "预处理参数获取成功，url: ${preparamsData.url}")
-
-                // 步骤2: 使用预处理参数获取电池数据
-                val batteryRequestBody =
-                    preparamsData.body.toRequestBody("application/json".toMediaType())
-                val batteryResponse = withTimeout(10000) {
-                    // 创建新的OkHttpClient，设置headers
-                    val loggingInterceptor = HttpLoggingInterceptor().apply {
-                        level = HttpLoggingInterceptor.Level.BODY
-                    }
-                    val batteryClient = OkHttpClient.Builder()
-                        .addInterceptor { chain ->
-                            val originalRequest = chain.request()
-                            val newRequestBuilder = originalRequest.newBuilder()
-
-                            // 添加从preparams响应中获取的headers
-                            preparamsData.headers.forEach { (key, value) ->
-                                newRequestBuilder.addHeader(key, value)
-                            }
-
-                            chain.proceed(newRequestBuilder.build())
-                        }
-                        .addInterceptor(loggingInterceptor)
-                        .build()
-
-                    // 创建新的retrofit实例用于调用不同的base URL
-                    val batteryRetrofit = Retrofit.Builder()
-                        .baseUrl("https://dummy.base.url/") // 占位符，因为我们使用@Url
-                        .addConverterFactory(GsonConverterFactory.create())
-                        .client(batteryClient)
-                        .build()
-                    val batteryService = batteryRetrofit.create(BatteryService::class.java)
-                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody)
-                        .awaitResponse()
-                }
-
-                if (batteryResponse == null || !batteryResponse.isSuccessful) {
-                    throw Exception("电池数据请求失败: ${batteryResponse?.code()}")
-                }
-
-                val encryptedData = batteryResponse.body()
-                if (encryptedData == null) {
-                    throw Exception("电池数据响应为空")
-                }
-
-                // 一次性读取响应数据，避免重复读取
-                val encryptedBytes = encryptedData.bytes()
-
-                Log.d(TAG, "电池数据获取成功，开始解码")
-
-                // 步骤3: 解码电池数据
-                val decodeRequestBody =
-                    encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
-                val decodeResponse = withTimeout(10000) {
-                    apiService?.decodeBatteryData(decodeRequestBody)?.awaitResponse()
-                }
-
-                if (decodeResponse == null || !decodeResponse.isSuccessful) {
-                    throw Exception("解码请求失败: ${decodeResponse?.code()}")
-                }
-
-                val decodeData = decodeResponse.body()?.data?.data
-                if (decodeData == null || decodeData.bindBatteries.isEmpty()) {
-                    throw Exception("解码响应数据无效或电池数据为空")
-                }
-
-                val batteryInfo = decodeData.bindBatteries[0]
-                Log.d(TAG, "解码成功，电池电量: ${batteryInfo.batteryLife}%")
+                Log.d(TAG, "获取电池数据成功，电池电量: ${batteryInfo.batteryLife}%")
 
                 // 解析时间格式 (reportTime是时间戳)
                 val reportTime = try {
@@ -432,6 +372,112 @@ class BatteryWidget : AppWidgetProvider() {
             intervalMillis,
             pendingIntent
         )
+    }
+
+    /**
+     * 使用本地加密获取电池数据
+     */
+    private suspend fun getBatteryDataWithLocalEncryption(batteryNo: String, token: String, cityCode: String): BatteryInfo? {
+        return try {
+            Log.d(TAG, "使用本地加密获取电池数据")
+            localBatteryService?.getBatteryDataWithLocalEncryption(batteryNo, token, cityCode)
+        } catch (e: Exception) {
+            Log.e(TAG, "本地加密获取电池数据失败", e)
+            null
+        }
+    }
+
+    /**
+     * 使用远程API获取电池数据（原有逻辑）
+     */
+    private suspend fun getBatteryDataWithRemoteAPI(batteryNo: String, token: String): BatteryInfo? {
+        return try {
+            // 步骤1: 获取预处理参数
+            val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
+            val preparamsResponse = withTimeout(10000) {
+                apiService?.getPreparams(batteryNo, tokenRequestBody)?.awaitResponse()
+            }
+
+            if (preparamsResponse == null || !preparamsResponse.isSuccessful) {
+                throw Exception("预处理参数请求失败: ${preparamsResponse?.code()}")
+            }
+
+            val preparamsData = preparamsResponse.body()?.data
+            if (preparamsData == null) {
+                throw Exception("预处理参数响应数据无效")
+            }
+
+            Log.d(TAG, "预处理参数获取成功，url: ${preparamsData.url}")
+
+            // 步骤2: 使用预处理参数获取电池数据
+            val batteryRequestBody =
+                preparamsData.body.toRequestBody("application/json".toMediaType())
+            val batteryResponse = withTimeout(10000) {
+                // 创建新的OkHttpClient，设置headers
+                val loggingInterceptor = HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                }
+                val batteryClient = OkHttpClient.Builder()
+                    .addInterceptor { chain ->
+                        val originalRequest = chain.request()
+                        val newRequestBuilder = originalRequest.newBuilder()
+
+                        // 添加从preparams响应中获取的headers
+                        preparamsData.headers.forEach { (key, value) ->
+                            newRequestBuilder.addHeader(key, value)
+                        }
+
+                        chain.proceed(newRequestBuilder.build())
+                    }
+                    .addInterceptor(loggingInterceptor)
+                    .build()
+
+                // 创建新的retrofit实例用于调用不同的base URL
+                val batteryRetrofit = Retrofit.Builder()
+                    .baseUrl("https://dummy.base.url/") // 占位符，因为我们使用@Url
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .client(batteryClient)
+                    .build()
+                val batteryService = batteryRetrofit.create(BatteryService::class.java)
+                batteryService.getBatteryData(preparamsData.url, batteryRequestBody)
+                    .awaitResponse()
+            }
+
+            if (batteryResponse == null || !batteryResponse.isSuccessful) {
+                throw Exception("电池数据请求失败: ${batteryResponse?.code()}")
+            }
+
+            val encryptedData = batteryResponse.body()
+            if (encryptedData == null) {
+                throw Exception("电池数据响应为空")
+            }
+
+            // 一次性读取响应数据，避免重复读取
+            val encryptedBytes = encryptedData.bytes()
+
+            Log.d(TAG, "电池数据获取成功，开始解码")
+
+            // 步骤3: 解码电池数据
+            val decodeRequestBody =
+                encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
+            val decodeResponse = withTimeout(10000) {
+                apiService?.decodeBatteryData(decodeRequestBody)?.awaitResponse()
+            }
+
+            if (decodeResponse == null || !decodeResponse.isSuccessful) {
+                throw Exception("解码请求失败: ${decodeResponse?.code()}")
+            }
+
+            val decodeData = decodeResponse.body()?.data?.data
+            if (decodeData == null || decodeData.bindBatteries.isEmpty()) {
+                throw Exception("解码响应数据无效或电池数据为空")
+            }
+
+            decodeData.bindBatteries[0]
+        } catch (e: Exception) {
+            Log.e(TAG, "远程API获取电池数据失败", e)
+            null
+        }
     }
 
     // 扩展函数：将Retrofit Call转换为挂起函数

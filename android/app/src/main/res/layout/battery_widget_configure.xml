@@ -165,11 +165,34 @@
 
                 </LinearLayout>
 
-                <!-- 功能按钮区域 -->
+                <!-- 本地加密设置 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="使用本地加密"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/local_encryption_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp" />
+
+                </LinearLayout>
+
+                <!-- 功能按钮区域 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
                     android:orientation="horizontal">
 
                     <!-- 测试按钮 -->
@@ -179,6 +202,15 @@
                         android:layout_height="26dp"
                         android:layout_margin="2dp"
                         app:tagText="测试接口连接"
+                        app:tagType="info" />
+
+                    <!-- 本地加密测试按钮 -->
+                    <com.xiaoha.batterywidget.views.TagView
+                        android:id="@+id/test_local_encryption_button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="26dp"
+                        android:layout_margin="2dp"
+                        app:tagText="测试本地加密"
                         app:tagType="info" />
 
                     <!-- 检查更新按钮 -->

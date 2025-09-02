@@ -28,6 +28,8 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.xiaoha.batterywidget.api.BatteryService
+import com.xiaoha.batterywidget.service.LocalBatteryService
+import com.xiaoha.batterywidget.utils.LocalEncryptionUtil
 import com.xiaoha.batterywidget.views.TagView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -80,6 +82,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var refreshIntervalSpinner: Spinner
     private lateinit var addButton: Button
     private lateinit var testButton: TagView
+    private lateinit var testLocalEncryptionButton: TagView
     private lateinit var checkUpdateButton: TagView
     private lateinit var testResultContainer: LinearLayout
 
@@ -87,6 +90,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
     private lateinit var copyLogButton: TagView
     private lateinit var clearLogButton: TagView
     private lateinit var notificationSwitch: androidx.appcompat.widget.SwitchCompat
+    private lateinit var localEncryptionSwitch: androidx.appcompat.widget.SwitchCompat
 
         private lateinit var versionManager: VersionManager
     private lateinit var versionText: TextView
@@ -123,6 +127,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                     val token = prefs.getString("token", "")
                     val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link/")
                     val refreshInterval = prefs.getInt("refreshInterval", 5)
+                    val useLocalEncryption = prefs.getBoolean("useLocalEncryption", false)
 
                     val refreshIntervals = resources.getStringArray(R.array.refresh_intervals)
                     val intervals = resources.getIntArray(R.array.refresh_interval_values)
@@ -135,7 +140,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                         token ?: "",
                         baseUrl ?: "https://xiaoha.linkof.link/",
                         position,
-                        refreshIntervals
+                        refreshIntervals,
+                        useLocalEncryption
                     )
                 }
 
@@ -170,6 +176,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         refreshIntervalSpinner = findViewById(R.id.refresh_interval_spinner)
         addButton = findViewById(R.id.add_button)
         testButton = findViewById(R.id.test_button)
+        testLocalEncryptionButton = findViewById(R.id.test_local_encryption_button)
         checkUpdateButton = findViewById(R.id.check_update_button)
         testResultContainer = findViewById(R.id.test_result_container)
 
@@ -185,6 +192,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         copyLogButton = findViewById<TagView>(R.id.copy_log_button)
         clearLogButton = findViewById<TagView>(R.id.clear_log_button)
         notificationSwitch = findViewById(R.id.notification_switch)
+        localEncryptionSwitch = findViewById(R.id.local_encryption_switch)
         versionText = findViewById(R.id.version)
 
         // 设置版本号
@@ -235,6 +243,18 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             }
         }
 
+        // 设置本地加密开关状态
+        val prefs = getSharedPreferences("BatteryWidgetPrefs", MODE_PRIVATE)
+        localEncryptionSwitch.isChecked = prefs.getBoolean("useLocalEncryption", false)
+        localEncryptionSwitch.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("useLocalEncryption", isChecked).apply()
+            Toast.makeText(
+                this, 
+                if (isChecked) "已启用本地加密" else "已禁用本地加密", 
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
         // 设置刷新间隔选项
         val adapter = ArrayAdapter(
             this,
@@ -258,6 +278,11 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         // 设置测试按钮点击事件
         testButton.setOnClickListener {
             testApiConnection()
+        }
+
+        // 设置本地加密测试按钮点击事件
+        testLocalEncryptionButton.setOnClickListener {
+            testLocalEncryption()
         }
 
         // 设置检查更新按钮点击事件
@@ -326,6 +351,9 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
 
                         // 保存通知设置
                         putBoolean("notification_enabled", notificationSwitch.isChecked)
+
+                        // 保存本地加密设置
+                        putBoolean("useLocalEncryption", localEncryptionSwitch.isChecked)
 
                         // 保存配置版本号，用于后续配置格式升级
                         putInt("configVersion", 1)
@@ -396,9 +424,144 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         refreshIntervalSpinner.isEnabled = enabled
         addButton.isEnabled = enabled
         testButton.isEnabled = enabled
+        testLocalEncryptionButton.isEnabled = enabled
         checkUpdateButton.isEnabled = enabled
         copyLogButton.isEnabled = enabled
         clearLogButton.isEnabled = enabled
+    }
+
+    private fun testLocalEncryption() {
+        val batteryNo = batteryNoEdit.text.toString().trim()
+        val token = tokenEdit.text.toString().trim()
+        val baseUrl = baseUrlEdit.text.toString().trim().let {
+            if (it.isEmpty()) "https://xiaoha.linkof.link/" else it
+        }
+
+        if (batteryNo.isEmpty()) {
+            Toast.makeText(this, "请输入电池编号", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (token.isEmpty()) {
+            Toast.makeText(this, "请输入token", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 显示测试结果区域
+        testResultContainer.visibility = View.VISIBLE
+        testResultText.text = "开始测试本地加密...\n"
+
+        // 禁用输入
+        setInputsEnabled(false)
+        testLocalEncryptionButton.text = "测试中..."
+        testLocalEncryptionButton.type = TagView.TagType.WARNING
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                appendTestResult("=== 开始本地加密测试 ===")
+                appendTestResult("电池编号: $batteryNo")
+                appendTestResult("基础URL: $baseUrl")
+                appendTestResult("Token: ${token.take(20)}...")
+                appendTestResult("")
+
+                // 创建本地电池服务
+                val localBatteryService = LocalBatteryService(baseUrl)
+
+                // 步骤1: 测试本地加密库基本功能
+                appendTestResult("步骤1: 测试本地加密库基本功能")
+                val testResult = localBatteryService.testLocalEncryption()
+                
+                if (!testResult.success) {
+                    throw Exception("本地加密库测试失败: ${testResult.message}")
+                }
+
+                appendTestResult("✅ 本地加密库测试通过")
+                testResult.details.forEach { (key, value) ->
+                    appendTestResult("  $key: $value")
+                }
+                appendTestResult("")
+
+                // 步骤2: 测试完整的电池数据获取流程
+                appendTestResult("步骤2: 测试完整的电池数据获取流程")
+                appendTestResult("使用本地加密获取电池数据...")
+
+                val cityCode = cityCodeEdit.text.toString().trim().let {
+                    if (it.isEmpty()) "0755" else it
+                }
+                val batteryInfo = localBatteryService.getBatteryDataWithLocalEncryption(batteryNo, token, cityCode)
+                
+                if (batteryInfo == null) {
+                    throw Exception("使用本地加密获取电池数据失败")
+                }
+
+                appendTestResult("✅ 电池数据获取成功")
+                appendTestResult("电池电量: ${batteryInfo.batteryLife}%")
+                appendTestResult("报告时间: ${batteryInfo.reportTime}")
+
+                // 解析时间格式
+                val reportTime = try {
+                    Date(batteryInfo.reportTime.toLong())
+                } catch (e: Exception) {
+                    try {
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.CHINA).parse(batteryInfo.reportTime) ?: Date()
+                    } catch (e2: Exception) {
+                        appendTestResult("时间解析失败: ${e.message}")
+                        Date()
+                    }
+                }
+
+                val formattedTime = SimpleDateFormat("M/d HH:mm", Locale.CHINA).format(reportTime)
+                appendTestResult("格式化时间: $formattedTime")
+                appendTestResult("")
+                appendTestResult("✅ 本地加密测试完成，所有功能正常！")
+
+                // 如果通知开关打开，发送测试通知
+                if (notificationSwitch.isChecked) {
+                    val notificationManager = NotificationManager(this@BatteryWidgetConfigureActivity)
+                    notificationManager.showBatteryUpdateNotification(
+                        batteryNo,
+                        batteryInfo.batteryLife,
+                        formattedTime,
+                        true
+                    )
+                    appendTestResult("已发送测试通知")
+                }
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        "本地加密测试成功！",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+            } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is java.lang.UnsatisfiedLinkError -> "本地加密库加载失败，请检查native库是否正确安装"
+                    is java.net.UnknownHostException -> "无法连接到服务器，请检查网络连接或服务器地址是否正确"
+                    is java.net.SocketTimeoutException -> "连接服务器超时，请稍后重试"
+                    else -> "本地加密测试失败: ${e.message}"
+                }
+
+                appendTestResult("❌ 测试失败: $errorMessage")
+                appendTestResult("错误类型: ${e.javaClass.simpleName}")
+                appendTestResult("错误详情: ${e.stackTraceToString()}")
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        errorMessage,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    setInputsEnabled(true)
+                    testLocalEncryptionButton.type = TagView.TagType.INFO
+                    testLocalEncryptionButton.text = ""
+                }
+            }
+        }
     }
 
     private fun testApiConnection() {
@@ -801,7 +964,8 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
         val token: String,
         val baseUrl: String,
         val refreshIntervalPosition: Int,
-        val refreshIntervals: Array<String>
+        val refreshIntervals: Array<String>,
+        val useLocalEncryption: Boolean
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -814,6 +978,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             if (cityCode != other.cityCode) return false
             if (token != other.token) return false
             if (baseUrl != other.baseUrl) return false
+            if (useLocalEncryption != other.useLocalEncryption) return false
             if (!refreshIntervals.contentEquals(other.refreshIntervals)) return false
 
             return true
@@ -825,6 +990,7 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
             result = 31 * result + cityCode.hashCode()
             result = 31 * result + token.hashCode()
             result = 31 * result + baseUrl.hashCode()
+            result = 31 * result + useLocalEncryption.hashCode()
             result = 31 * result + refreshIntervals.contentHashCode()
             return result
         }
