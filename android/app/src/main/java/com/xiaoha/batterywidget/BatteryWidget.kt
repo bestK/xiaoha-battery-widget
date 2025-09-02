@@ -11,7 +11,6 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Build
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
@@ -23,11 +22,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -40,7 +37,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class BatteryWidget : AppWidgetProvider() {
     companion object {
@@ -60,7 +58,9 @@ class BatteryWidget : AppWidgetProvider() {
 
         fun init(context: Context) {
             prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
-            val baseUrl = prefs.getString("base_url", "https://xiaoha.linkof.link/")!!
+            val baseUrl = prefs.getString("baseUrl", "https://xiaoha.linkof.link/")!!
+
+            Log.d(TAG, String.format("init: baseUrl %s", baseUrl))
 
             // 添加日志拦截器
             val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -96,14 +96,18 @@ class BatteryWidget : AppWidgetProvider() {
         init(context)
         val prefs = context.getSharedPreferences("BatteryWidgetPrefs", Context.MODE_PRIVATE)
         val batteryNo = prefs.getString("batteryNo", "") ?: ""
-        
+
         if (batteryNo.isEmpty()) {
             Log.d(TAG, "未配置电池号，跳过刷新和定时任务")
             return
         }
+
+        // 遍历所有小组件ID进行更新
+        appWidgetIds.forEach { widgetId ->
+            // 1. 立即刷新每个小组件
+            updateAppWidget(context, appWidgetManager, widgetId, "onUpdate")
+        }
         
-        // 1. 立即刷新
-        updateAppWidget(context, appWidgetManager, appWidgetIds[0], "onUpdate")
         // 2. 设置定时任务
         setAlarmManager(context, batteryNo, prefs.getInt("refreshInterval", 5))
     }
@@ -111,7 +115,7 @@ class BatteryWidget : AppWidgetProvider() {
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
         Log.d(TAG, "onDeleted called")
-        
+
         currentJob?.cancel()
         currentJob = null
 
@@ -141,7 +145,12 @@ class BatteryWidget : AppWidgetProvider() {
             if (currentTime - lastClickTime <= DOUBLE_CLICK_TIMEOUT) {
                 // 双击检测到，立即刷新
                 val appWidgetManager = AppWidgetManager.getInstance(context)
-                val widgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, BatteryWidget::class.java))
+                val widgetIds = appWidgetManager.getAppWidgetIds(
+                    ComponentName(
+                        context,
+                        BatteryWidget::class.java
+                    )
+                )
                 if (widgetIds.isNotEmpty()) {
                     updateAppWidget(
                         context,
@@ -153,9 +162,10 @@ class BatteryWidget : AppWidgetProvider() {
                 lastClickTime = 0L // 清除点击记录
             } else {
                 // 单击，打开配置页面
-                val configIntent = Intent(context, BatteryWidgetConfigureActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
+                val configIntent =
+                    Intent(context, BatteryWidgetConfigureActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
                 context.startActivity(configIntent)
                 // 记录点击时间用于双击检测
                 lastClickTime = currentTime
@@ -163,7 +173,8 @@ class BatteryWidget : AppWidgetProvider() {
         } else if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
             Log.i(TAG, "onReceive: ACTION_APPWIDGET_UPDATE")
             val appWidgetManager = AppWidgetManager.getInstance(context)
-            val widgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, BatteryWidget::class.java))
+            val widgetIds =
+                appWidgetManager.getAppWidgetIds(ComponentName(context, BatteryWidget::class.java))
             if (widgetIds.isNotEmpty()) {
                 updateAppWidget(context, appWidgetManager, widgetIds[0], "AlarmManager")
             }
@@ -232,7 +243,7 @@ class BatteryWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 Log.d(TAG, "开始获取电池数据，batteryNo: $batteryNo")
-                
+
                 // 步骤1: 获取预处理参数
                 val tokenRequestBody = token.toRequestBody("text/plain".toMediaType())
                 val preparamsResponse = withTimeout(10000) {
@@ -251,7 +262,8 @@ class BatteryWidget : AppWidgetProvider() {
                 Log.d(TAG, "预处理参数获取成功，url: ${preparamsData.url}")
 
                 // 步骤2: 使用预处理参数获取电池数据
-                val batteryRequestBody = preparamsData.body.toRequestBody("application/json".toMediaType())
+                val batteryRequestBody =
+                    preparamsData.body.toRequestBody("application/json".toMediaType())
                 val batteryResponse = withTimeout(10000) {
                     // 创建新的OkHttpClient，设置headers
                     val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -261,17 +273,17 @@ class BatteryWidget : AppWidgetProvider() {
                         .addInterceptor { chain ->
                             val originalRequest = chain.request()
                             val newRequestBuilder = originalRequest.newBuilder()
-                            
+
                             // 添加从preparams响应中获取的headers
                             preparamsData.headers.forEach { (key, value) ->
                                 newRequestBuilder.addHeader(key, value)
                             }
-                            
+
                             chain.proceed(newRequestBuilder.build())
                         }
                         .addInterceptor(loggingInterceptor)
                         .build()
-                    
+
                     // 创建新的retrofit实例用于调用不同的base URL
                     val batteryRetrofit = Retrofit.Builder()
                         .baseUrl("https://dummy.base.url/") // 占位符，因为我们使用@Url
@@ -279,7 +291,8 @@ class BatteryWidget : AppWidgetProvider() {
                         .client(batteryClient)
                         .build()
                     val batteryService = batteryRetrofit.create(BatteryService::class.java)
-                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody).awaitResponse()
+                    batteryService.getBatteryData(preparamsData.url, batteryRequestBody)
+                        .awaitResponse()
                 }
 
                 if (batteryResponse == null || !batteryResponse.isSuccessful) {
@@ -293,11 +306,12 @@ class BatteryWidget : AppWidgetProvider() {
 
                 // 一次性读取响应数据，避免重复读取
                 val encryptedBytes = encryptedData.bytes()
-                
+
                 Log.d(TAG, "电池数据获取成功，开始解码")
 
                 // 步骤3: 解码电池数据
-                val decodeRequestBody = encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
+                val decodeRequestBody =
+                    encryptedBytes.toRequestBody("application/octet-stream".toMediaType())
                 val decodeResponse = withTimeout(10000) {
                     apiService?.decodeBatteryData(decodeRequestBody)?.awaitResponse()
                 }
@@ -321,32 +335,46 @@ class BatteryWidget : AppWidgetProvider() {
                 } catch (e: Exception) {
                     try {
                         // 如果不是时间戳，尝试解析为ISO格式
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.CHINA).parse(batteryInfo.reportTime) 
+                        SimpleDateFormat(
+                            "yyyy-MM-dd'T'HH:mm:ss",
+                            Locale.CHINA
+                        ).parse(batteryInfo.reportTime)
                             ?: Date()
                     } catch (e2: Exception) {
                         Log.w(TAG, "时间解析失败，使用当前时间: ${batteryInfo.reportTime}", e)
                         Date()
                     }
                 }
-                
+
                 val formattedTime = dateFormat.format(reportTime)
 
                 withContext(Dispatchers.Main) {
-                                                    views.setProgressBar(R.id.progress_circle, 100, batteryInfo.batteryLife, false)
-                                views.setTextViewText(R.id.percent_text, "${batteryInfo.batteryLife}%")
-                                views.setTextViewText(R.id.battery_no, batteryNo)
-                                views.setTextViewText(R.id.update_time, formattedTime)
-                                Log.d(TAG, "小部件更新成功")
-                                
-                                // 发送通知
-                                if (notificationManager == null) {
-                                    notificationManager = NotificationManager(context)
-                                }
-                                notificationManager?.showBatteryUpdateNotification(
-                                    batteryNo,
-                                    batteryInfo.batteryLife,
-                                    formattedTime
-                                )
+                    views.setProgressBar(R.id.progress_circle, 100, batteryInfo.batteryLife, false)
+                    views.setTextViewText(R.id.percent_text, "${batteryInfo.batteryLife}%")
+                    views.setTextViewText(R.id.battery_no, batteryNo)
+                    views.setTextViewText(R.id.update_time, formattedTime)
+                    
+                    // 立即更新小部件显示
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                    
+                    // 强制通知系统小组件已更新
+                    try {
+                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_layout)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to notify widget data changed", e)
+                    }
+                    
+                    Log.d(TAG, "小部件UI更新成功 - widgetId: $appWidgetId, 电量: ${batteryInfo.batteryLife}%, 时间: $formattedTime")
+
+                    // 发送通知
+                    if (notificationManager == null) {
+                        notificationManager = NotificationManager(context)
+                    }
+                    notificationManager?.showBatteryUpdateNotification(
+                        batteryNo,
+                        batteryInfo.batteryLife,
+                        formattedTime
+                    )
                 }
             } catch (e: Exception) {
                 val errorMessage = when (e) {
@@ -359,10 +387,17 @@ class BatteryWidget : AppWidgetProvider() {
                 Log.e(TAG, "Error updating widget: $errorMessage", e)
                 withContext(Dispatchers.Main) {
                     updateErrorState(views, errorMessage)
-                }
-            } finally {
-                withContext(Dispatchers.Main) {
+                    // 在错误情况下更新小部件显示
                     appWidgetManager.updateAppWidget(appWidgetId, views)
+                    
+                    // 强制通知系统小组件已更新
+                    try {
+                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_layout)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to notify widget data changed in error case", e)
+                    }
+                    
+                    Log.d(TAG, "小部件错误状态更新完成 - widgetId: $appWidgetId, 错误: $errorMessage")
                 }
             }
         }

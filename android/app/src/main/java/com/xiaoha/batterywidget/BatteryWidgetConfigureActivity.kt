@@ -334,15 +334,40 @@ class BatteryWidgetConfigureActivity : AppCompatActivity() {
                         commit()
                     }
 
-                    // 更新小部件
-                    val appWidgetManager =
-                        AppWidgetManager.getInstance(this@BatteryWidgetConfigureActivity)
+                }
+
+                // 在主线程中初始化并更新小部件
+                withContext(Dispatchers.Main) {
+                    val appWidgetManager = AppWidgetManager.getInstance(this@BatteryWidgetConfigureActivity)
                     val widget = BatteryWidget()
-                    widget.onUpdate(
+                    
+                    // 先初始化BatteryWidget的静态方法
+                    BatteryWidget.init(this@BatteryWidgetConfigureActivity)
+                    
+                    // 立即调用updateAppWidget方法进行数据更新（异步执行）
+                    Log.d("BatteryWidgetConfig", "开始更新小部件 - widgetId: $appWidgetId")
+                    widget.updateAppWidget(
                         this@BatteryWidgetConfigureActivity,
                         appWidgetManager,
-                        intArrayOf(appWidgetId)
+                        appWidgetId,
+                        "saveConfiguration"
                     )
+                    
+                    // 额外发送更新广播，确保小组件能够收到更新信号
+                    val updateIntent = Intent(this@BatteryWidgetConfigureActivity, BatteryWidget::class.java).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
+                    }
+                    sendBroadcast(updateIntent)
+                    Log.d("BatteryWidgetConfig", "发送更新广播完成")
+                }
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@BatteryWidgetConfigureActivity,
+                        "配置已保存，小组件正在更新...",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
 
                 // 设置结果并关闭活动
