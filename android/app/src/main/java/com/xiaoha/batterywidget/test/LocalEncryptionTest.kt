@@ -2,7 +2,7 @@ package com.xiaoha.batterywidget.test
 
 import android.content.Context
 import android.util.Log
-import com.xiaoha.batterywidget.service.LocalBatteryService
+import com.xiaoha.batterywidget.api.LocalBatteryService
 import com.xiaoha.batterywidget.utils.LocalEncryptionUtil
 import kotlinx.coroutines.runBlocking
 import java.util.Date

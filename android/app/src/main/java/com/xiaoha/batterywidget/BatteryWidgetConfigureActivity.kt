@@ -28,7 +28,7 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.xiaoha.batterywidget.api.BatteryService
-import com.xiaoha.batterywidget.service.LocalBatteryService
+import com.xiaoha.batterywidget.api.LocalBatteryService
 import com.xiaoha.batterywidget.utils.LocalEncryptionUtil
 import com.xiaoha.batterywidget.views.TagView
 import kotlinx.coroutines.Dispatchers

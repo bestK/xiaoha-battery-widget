@@ -41,7 +41,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import batteryencryption.Batteryencryption
 import com.xiaoha.batterywidget.api.BatteryInfo
-import com.xiaoha.batterywidget.service.LocalBatteryService
+import com.xiaoha.batterywidget.api.LocalBatteryService
 import com.xiaoha.batterywidget.utils.LocalEncryptionUtil
 
 class BatteryWidget : AppWidgetProvider() {
